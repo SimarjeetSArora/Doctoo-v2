@@ -1,0 +1,39 @@
+# Docker Compose: the services Doctoo needs during local development.
+# Start everything:   docker compose up -d      (-d = run in background)
+# Stop everything:    docker compose down
+# See running ones:   docker compose ps
+# View logs:          docker compose logs -f db
+
+services:
+  # ---------- PostgreSQL: our main database ----------
+  db:
+    image: postgres:17-alpine          # official image, version 17 ("alpine" = small Linux base)
+    container_name: doctoo-db
+    restart: unless-stopped            # auto-restart if it crashes or the PC reboots
+    environment:                       # settings passed into the container
+      POSTGRES_USER: doctoo
+      POSTGRES_PASSWORD: doctoo_dev_password   # dev only; production uses a real secret
+      POSTGRES_DB: doctoo
+    ports:
+      - "5432:5432"                    # "your PC port : container port" → app connects to localhost:5432
+    volumes:
+      - pgdata:/var/lib/postgresql/data   # store data in a named volume so it survives restarts
+    healthcheck:                       # lets Docker know when Postgres is actually ready
+      test: ["CMD-SHELL", "pg_isready -U doctoo -d doctoo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ---------- Redis: fast in-memory store, used later for background jobs (WhatsApp reminders) ----------
+  redis:
+    image: redis:7-alpine
+    container_name: doctoo-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+
+volumes:
+  pgdata:
+  redisdata:
