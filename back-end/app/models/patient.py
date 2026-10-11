@@ -1,10 +1,10 @@
 import enum
 from datetime import date
 
-from sqlalchemy import Enum, Index, String, Text
+from sqlalchemy import Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import Base, SoftDeleteMixin, TenantMixin
+from app.models.base import Base, SoftDeleteMixin, TenantMixin, str_enum
 
 
 class Gender(enum.StrEnum):
@@ -22,9 +22,7 @@ class Patient(TenantMixin, SoftDeleteMixin, Base):
     phone: Mapped[str] = mapped_column(String(20))
     email: Mapped[str | None] = mapped_column(String(255))
     date_of_birth: Mapped[date | None]
-    gender: Mapped[Gender | None] = mapped_column(
-        Enum(Gender, native_enum=False, length=10, values_callable=lambda e: [m.value for m in e])
-    )
+    gender: Mapped[Gender | None] = mapped_column(str_enum(Gender, 10))
     blood_group: Mapped[str | None] = mapped_column(String(5))
     address: Mapped[str | None] = mapped_column(String(500))
     abha_number: Mapped[str | None] = mapped_column(String(20))  # Ayushman Bharat Health Account ID

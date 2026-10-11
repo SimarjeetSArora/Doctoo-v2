@@ -2,10 +2,10 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, TenantMixin
+from app.models.base import Base, TenantMixin, str_enum
 from app.models.patient import Patient
 from app.models.user import User
 
@@ -31,12 +31,7 @@ class Appointment(TenantMixin, Base):
     start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     status: Mapped[AppointmentStatus] = mapped_column(
-        Enum(
-            AppointmentStatus,
-            native_enum=False,
-            length=20,
-            values_callable=lambda e: [m.value for m in e],
-        ),
+        str_enum(AppointmentStatus, 20),
         default=AppointmentStatus.BOOKED,
     )
     reason: Mapped[str | None] = mapped_column(String(300))
