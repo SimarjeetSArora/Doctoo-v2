@@ -1,7 +1,8 @@
+import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, MetaData, func
+from sqlalchemy import DateTime, Enum, ForeignKey, MetaData, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
 
 # Predictable constraint names, so Alembic migrations stay clean and reversible.
@@ -40,3 +41,11 @@ class SoftDeleteMixin:
     """Rows are never physically deleted; deleted_at marks them as removed."""
 
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+def str_enum(enum_cls: type[enum.StrEnum], length: int) -> Enum:
+    """Store a Python enum as plain text (not a Postgres enum), so adding values needs no
+    tricky migration."""
+    return Enum(
+        enum_cls, native_enum=False, length=length, values_callable=lambda e: [m.value for m in e]
+    )

@@ -45,3 +45,10 @@ cd front-end && npm run dev                            # http://localhost:5173
 | Lint / format backend | `back-end`: `ruff check . --fix` and `ruff format .` |
 | Add a UI component | `front-end`: `npx shadcn@latest add <name>` |
 | Stop database containers | root: `docker compose down` (data is kept) |
+
+## Authentication (clinic staff)
+
+- Email + password. Owners sign up at `/register`; staff join through email invitations.
+- Access token (30 min, kept in memory) + refresh token (14 days, httpOnly cookie, stored hashed in `user_sessions`).
+- Every clinic request sends `X-Clinic-Id`; the backend checks membership and role (`app/api/deps.py`).
+- In development, emails (password reset, invitations) are **printed in the backend terminal** — copy the link from there.
