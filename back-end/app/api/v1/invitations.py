@@ -2,7 +2,7 @@ import uuid
 from datetime import timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Response, status
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,7 +24,7 @@ from app.services.auth import (
     start_session,
     utcnow,
 )
-from app.services.email import EmailMessage, EmailSender, get_email_sender
+from app.services.email import EmailMessage, EmailSender, deliver, get_email_sender
 
 router = APIRouter(prefix="/invitations", tags=["invitations"])
 
@@ -55,6 +55,7 @@ async def create_invitation(
     ctx: OwnerCtx,
     db: DbSession,
     email_sender: Annotated[EmailSender, Depends(get_email_sender)],
+    background: BackgroundTasks,
 ) -> InvitationOut:
     existing_user = await get_user_by_email(db, body.email)
     if existing_user and await db.scalar(
@@ -88,7 +89,10 @@ async def create_invitation(
     await db.refresh(invitation)
 
     clinic = await db.get(Clinic, ctx.clinic_id)
-    await email_sender.send(
+    # Sent after the response, so the request stays fast.
+    background.add_task(
+        deliver,
+        email_sender,
         EmailMessage(
             to=body.email,
             subject=f"{ctx.user.full_name} invited you to {clinic.name} on Doctoo",
@@ -97,7 +101,7 @@ async def create_invitation(
                 f"Accept the invitation (valid for {settings.invitation_expire_days} days):\n"
                 f"{settings.frontend_url}/invite?token={token}"
             ),
-        )
+        ),
     )
     return _out(invitation, ctx.user)
 

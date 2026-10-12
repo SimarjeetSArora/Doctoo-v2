@@ -34,6 +34,17 @@ services:
     volumes:
       - redisdata:/data
 
+  # ---------- Mailpit: fake email server for development ----------
+  # Catches every email the app sends (nothing reaches real inboxes).
+  # Read them at http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.29
+    container_name: doctoo-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"                    # SMTP: the backend sends email here
+      - "8025:8025"                    # web inbox in your browser
+
 volumes:
   pgdata:
   redisdata:
