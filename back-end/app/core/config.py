@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -26,8 +27,21 @@ class Settings(BaseSettings):
     # Used to build links in emails (password reset, invitations)
     frontend_url: str = "http://localhost:5173"
 
-    # "console" prints emails in the backend terminal (development).
-    email_backend: str = "console"
+    # Email delivery: "smtp" sends through the SMTP server below; "console" just prints
+    # emails in the backend terminal.
+    email_backend: Literal["smtp", "console"] = "smtp"
+    # Empty = use smtp_username (required for Gmail, which only sends as the logged-in account)
+    email_from_address: str = "no-reply@doctoo.local"
+    email_from_name: str = "Doctoo"
+
+    # SMTP server. Defaults point at Mailpit from docker-compose (dev inbox: localhost:8025).
+    smtp_host: str = "localhost"
+    smtp_port: int = 1025
+    smtp_username: str = ""
+    smtp_password: str = ""
+    # "starttls" for port 587, "ssl" for port 465, "none" for local Mailpit
+    smtp_security: Literal["starttls", "ssl", "none"] = "none"
+    smtp_timeout_seconds: float = 15
 
     @property
     def is_production(self) -> bool:

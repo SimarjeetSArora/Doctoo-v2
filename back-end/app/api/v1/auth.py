@@ -1,7 +1,16 @@
 from datetime import timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Response, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Cookie,
+    Depends,
+    Header,
+    HTTPException,
+    Response,
+    status,
+)
 from sqlalchemy import select
 
 from app.api.deps import CurrentUser
@@ -35,7 +44,7 @@ from app.services.auth import (
     start_session,
     utcnow,
 )
-from app.services.email import EmailMessage, EmailSender, get_email_sender
+from app.services.email import EmailMessage, EmailSender, deliver, get_email_sender
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -104,6 +113,7 @@ async def forgot_password(
     body: ForgotPasswordRequest,
     db: DbSession,
     email_sender: Annotated[EmailSender, Depends(get_email_sender)],
+    background: BackgroundTasks,
 ) -> dict[str, str]:
     message = {"detail": "If an account exists for that email, we've sent a reset link."}
     user = await get_user_by_email(db, body.email)
@@ -121,7 +131,10 @@ async def forgot_password(
     )
     await db.commit()
     link = f"{settings.frontend_url}/reset-password?token={token}"
-    await email_sender.send(
+    # Sent after the response, so the request stays fast.
+    background.add_task(
+        deliver,
+        email_sender,
         EmailMessage(
             to=user.email,
             subject="Reset your Doctoo password",
@@ -130,7 +143,7 @@ async def forgot_password(
                 f"(valid for {settings.password_reset_expire_minutes} minutes):\n{link}\n\n"
                 "If you didn't ask for this, you can ignore this email."
             ),
-        )
+        ),
     )
     return message
 
