@@ -1,11 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MailPlus, MoreHorizontal } from 'lucide-react'
-import { useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { useRef, useState } from 'react'
+import { Controller, FormProvider, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
+import { SegmentedToggle } from '@/components/SegmentedToggle'
 import { TextField } from '@/components/TextField'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -46,9 +47,14 @@ import {
 import { useAuth } from '@/features/auth/auth-context'
 import { FormError } from '@/features/auth/FormError'
 import { errorText } from '@/lib/errors'
+import { formatPhone, toE164 } from '@/lib/phone'
+import { checkPhone } from '@/features/auth/profile'
+import { PhoneField } from '@/features/auth/ProfileFields'
 import { emailField } from '@/features/auth/schemas'
 import { api } from '@/lib/api'
-import { type Invitation, type Member, type Role, ROLE_LABELS } from '@/lib/types'
+import { CONTACT_OPTIONS } from '@/lib/contact-options'
+import { DEFAULT_COUNTRY } from '@/lib/countries'
+import { type Invitation, type Member, type OtpChannel, type Role, ROLE_LABELS } from '@/lib/types'
 
 const ROLES = Object.keys(ROLE_LABELS) as Role[]
 
@@ -129,7 +135,10 @@ export function TeamPage() {
                         <span className="text-muted-foreground"> (you)</span>
                       )}
                     </div>
-                    <div className="text-sm text-muted-foreground">{m.email}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {m.email}
+                      {m.phone && <span className="block">{formatPhone(m.phone)}</span>}
+                    </div>
                   </TableCell>
                   <TableCell>{ROLE_LABELS[m.role]}</TableCell>
                   <TableCell>
@@ -184,9 +193,9 @@ export function TeamPage() {
             {invitations.data.map((inv) => (
               <div key={inv.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
                 <div>
-                  <div className="font-medium">{inv.email}</div>
+                  <div className="font-medium">{inv.email ?? formatPhone(inv.phone)}</div>
                   <div className="text-sm text-muted-foreground">
-                    {ROLE_LABELS[inv.role]} · expires {formatDate(inv.expires_at)}
+                    {ROLE_LABELS[inv.role]} · by {inv.email ? 'email' : 'WhatsApp'} · expires {formatDate(inv.expires_at)}
                   </div>
                 </div>
                 <Button
@@ -206,27 +215,49 @@ export function TeamPage() {
   )
 }
 
-const inviteSchema = z.object({
-  email: emailField,
-  role: z.enum(['owner', 'doctor', 'receptionist']),
-})
-type InviteValues = z.infer<typeof inviteSchema>
+type InviteValues = {
+  email: string
+  country: string
+  phone_number: string
+  role: Role
+}
+
+function inviteSchema(via: OtpChannel) {
+  return z
+    .object({
+      email: via === 'email' ? emailField : z.string(),
+      country: z.string(),
+      phone_number: z.string(),
+      role: z.enum(['owner', 'doctor', 'receptionist']),
+    })
+    .superRefine((values, ctx) => {
+      if (via === 'phone') checkPhone(values, ctx)
+    })
+}
 
 function InviteDialog() {
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string>()
+  const [via, setVia] = useState<OtpChannel>('email')
   const queryClient = useQueryClient()
+  // The resolver reads the current choice, so validation follows the Email / Mobile switch.
+  const viaRef = useRef(via)
   const form = useForm<InviteValues>({
-    resolver: zodResolver(inviteSchema),
-    defaultValues: { email: '', role: 'doctor' },
+    resolver: (values, context, options) =>
+      zodResolver(inviteSchema(viaRef.current))(values, context, options),
+    defaultValues: { email: '', country: DEFAULT_COUNTRY, phone_number: '', role: 'doctor' },
   })
   const { errors, isSubmitting } = form.formState
 
   async function onSubmit(values: InviteValues) {
     setError(undefined)
+    const contact =
+      via === 'email'
+        ? { email: values.email }
+        : { phone: toE164(values.country, values.phone_number) }
     try {
-      await api.post<Invitation>('/invitations', values)
-      toast.success(`Invitation sent to ${values.email}`)
+      await api.post<Invitation>('/invitations', { ...contact, role: values.role })
+      toast.success(`Invitation sent to ${contact.email ?? formatPhone(contact.phone)}`)
       queryClient.invalidateQueries({ queryKey: ['invitations'] })
       form.reset()
       setOpen(false)
@@ -250,50 +281,70 @@ function InviteDialog() {
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
-        <form noValidate onSubmit={form.handleSubmit(onSubmit)}>
-          <DialogHeader>
-            <DialogTitle>Invite a team member</DialogTitle>
-            <DialogDescription>
-              They&apos;ll get an email with a link to join. The link is valid for 7 days.
-            </DialogDescription>
-          </DialogHeader>
-          <FieldGroup className="py-6">
-            <FormError message={error} />
-            <TextField
-              label="Email"
-              type="email"
-              autoFocus
-              registration={form.register('email')}
-              error={errors.email}
-            />
-            <Field>
-              <FieldLabel htmlFor="role">Role</FieldLabel>
-              <Controller
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger id="role" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ROLES.map((role) => (
-                        <SelectItem key={role} value={role}>
-                          {ROLE_LABELS[role]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+        <FormProvider {...form}>
+          <form noValidate onSubmit={form.handleSubmit(onSubmit)}>
+            <DialogHeader>
+              <DialogTitle>Invite a team member</DialogTitle>
+              <DialogDescription>
+                {via === 'email'
+                  ? "They'll get an email with a link to join."
+                  : "They'll get a WhatsApp message with a link to join."}{' '}
+                The link is valid for 7 days.
+              </DialogDescription>
+            </DialogHeader>
+            <FieldGroup className="py-6">
+              <SegmentedToggle
+                label="Send invitation by"
+                options={CONTACT_OPTIONS}
+                value={via}
+                onChange={(option) => {
+                  viaRef.current = option
+                  setVia(option)
+                  form.clearErrors()
+                  setError(undefined)
+                }}
               />
-            </Field>
-          </FieldGroup>
-          <DialogFooter>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Sending…' : 'Send invitation'}
-            </Button>
-          </DialogFooter>
-        </form>
+              <FormError message={error} />
+              {via === 'email' ? (
+                <TextField
+                  label="Email"
+                  type="email"
+                  autoFocus
+                  registration={form.register('email')}
+                  error={errors.email}
+                />
+              ) : (
+                <PhoneField />
+              )}
+              <Field>
+                <FieldLabel htmlFor="role">Role</FieldLabel>
+                <Controller
+                  control={form.control}
+                  name="role"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger id="role" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ROLES.map((role) => (
+                          <SelectItem key={role} value={role}>
+                            {ROLE_LABELS[role]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </Field>
+            </FieldGroup>
+            <DialogFooter>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Sending…' : 'Send invitation'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </FormProvider>
       </DialogContent>
     </Dialog>
   )

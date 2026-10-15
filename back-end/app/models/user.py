@@ -8,6 +8,15 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TenantMixin, str_enum
 
 
+class Salutation(enum.StrEnum):
+    DR = "Dr."
+    MR = "Mr."
+    MRS = "Mrs."
+    MS = "Ms."
+    MISS = "Miss"
+    PROF = "Prof."
+
+
 class User(Base):
     """A clinic staff login account (owner, doctor, receptionist).
 
@@ -18,14 +27,26 @@ class User(Base):
     __tablename__ = "users"
 
     email: Mapped[str] = mapped_column(String(255), unique=True)  # always stored lowercase
-    full_name: Mapped[str] = mapped_column(String(200))
-    phone: Mapped[str | None] = mapped_column(String(20))
+    salutation: Mapped[Salutation | None] = mapped_column(str_enum(Salutation, 10))
+    first_name: Mapped[str] = mapped_column(String(100))
+    middle_name: Mapped[str | None] = mapped_column(String(100))
+    last_name: Mapped[str] = mapped_column(String(100))
+    # International (E.164) format, e.g. +919876543210. Unique: it can be used to log in.
+    phone: Mapped[str | None] = mapped_column(String(20), unique=True)
     hashed_password: Mapped[str] = mapped_column(String(255))
-    # Set once we know they own the email (they used an invite link or password-reset link).
+    # Set once they prove they own the email (sign-up code, invite link or password-reset link).
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Set once they verify the phone number by OTP (coming later).
+    phone_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_active: Mapped[bool] = mapped_column(default=True)
 
     memberships: Mapped[list["ClinicMember"]] = relationship(back_populates="user")
+
+    @property
+    def full_name(self) -> str:
+        """Display name, e.g. "Dr. Simarjeet Singh Arora"."""
+        parts = (self.salutation, self.first_name, self.middle_name, self.last_name)
+        return " ".join(part for part in parts if part)
 
 
 class Role(enum.StrEnum):

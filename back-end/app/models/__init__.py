@@ -1,10 +1,17 @@
 # Import every model here so Alembic can discover all tables.
 from app.models.appointment import Appointment, AppointmentStatus
-from app.models.auth import Invitation, PasswordResetToken, UserSession
+from app.models.auth import (
+    Invitation,
+    OtpChannel,
+    OtpPurpose,
+    PasswordResetToken,
+    UserSession,
+    VerificationCode,
+)
 from app.models.base import Base
 from app.models.clinic import Clinic
 from app.models.patient import Gender, Patient
-from app.models.user import ClinicMember, Role, User
+from app.models.user import ClinicMember, Role, Salutation, User
 
 __all__ = [
     "Appointment",
@@ -14,9 +21,13 @@ __all__ = [
     "ClinicMember",
     "Gender",
     "Invitation",
+    "OtpChannel",
+    "OtpPurpose",
     "PasswordResetToken",
     "Patient",
     "Role",
+    "Salutation",
     "User",
     "UserSession",
+    "VerificationCode",
 ]

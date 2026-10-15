@@ -54,13 +54,8 @@ const ADMIN_NAV: NavItem[] = [
   { label: 'Clinic settings', to: '/settings', icon: Settings },
 ]
 
-function initials(name: string) {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('')
+function initials(user: { first_name: string; last_name: string }) {
+  return `${user.first_name[0] ?? ''}${user.last_name[0] ?? ''}`.toUpperCase()
 }
 
 function NavGroup({ label, items }: { label: string; items: NavItem[] }) {
@@ -137,7 +132,7 @@ function UserMenu() {
       <DropdownMenuTrigger asChild>
         <SidebarMenuButton size="lg">
           <Avatar className="size-8 rounded-md">
-            <AvatarFallback className="rounded-md">{initials(me.user.full_name)}</AvatarFallback>
+            <AvatarFallback className="rounded-md">{initials(me.user)}</AvatarFallback>
           </Avatar>
           <span className="grid flex-1 text-left leading-tight">
             <span className="truncate font-medium">{me.user.full_name}</span>

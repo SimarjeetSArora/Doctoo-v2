@@ -49,10 +49,85 @@ cd front-end && npm run dev                            # http://localhost:5173
 
 ## Authentication (clinic staff)
 
-- Email + password. Owners sign up at `/register`; staff join through email invitations.
+- Owners sign up at `/register` (title, first/middle/last name, mobile number, email verified with a
+  6-digit code, password). Staff join through invitations sent by **email or SMS**.
+- Log in with **email or mobile number**, using a **password or a one-time code** (emailed or texted).
+  Mobile numbers are unique per account and stored in international format (`+919876543210`).
+- One-time codes: 6 digits, valid 10 minutes, 5 wrong attempts, 60 s before resend, max 5 per hour,
+  single use, stored only as a keyed hash.
 - Access token (30 min, kept in memory) + refresh token (14 days, httpOnly cookie, stored hashed in `user_sessions`).
 - Every clinic request sends `X-Clinic-Id`; the backend checks membership and role (`app/api/deps.py`).
 - Emails (password reset, invitations) are sent over **SMTP** in the background, after the response.
+
+## SMS
+
+| Setting `SMS_BACKEND` | Where texts go |
+|---|---|
+| `mailpit` (development default) | The **Mailpit inbox at http://localhost:8025**, addressed to `sms+<number>@doctoo.local` |
+| `console` | Printed in the backend terminal |
+| `msg91` | Real SMS through **MSG91** (production) |
+
+**Check SMS settings** (sends a sample login-code SMS right away and shows any error):
+```powershell
+cd back-end
+.venv\Scripts\activate
+python -m app.scripts.send_test_sms +919876543210
+```
+
+### SMS with MSG91 (India)
+Indian law (TRAI DLT) only allows business SMS that match **pre-approved templates**, sent under an approved
+**sender ID**. One-time setup:
+
+1. **Register on a DLT portal** (Jio, Airtel, Vodafone-Idea…) as a business ("Principal Entity") — needs
+   PAN + GST or company registration. You get a **PE ID**.
+2. **Register a sender ID (header)**, e.g. `DOCTOO` (6 letters), category *Transactional/Service-Implicit*.
+3. **Register these two content templates** on DLT. The wording must match exactly; `{#var#}` is a variable:
+
+   | Use | Template text (DLT format) |
+   |---|---|
+   | Login code | `{#var#} is your Doctoo login code. Valid {#var#} min. Do not share it with anyone.` |
+   | Invitation | `{#var#} invited you to join {#var#} on Doctoo as a {#var#}. Accept within {#var#} days: {#var#}` |
+
+4. **In MSG91**: add your DLT PE ID and sender ID, then create the same two SMS templates, naming the
+   variables exactly as Doctoo sends them:
+   - Login code: `##code## is your Doctoo login code. Valid ##minutes## min. Do not share it with anyone.`
+   - Invitation: `##inviter## invited you to join ##clinic## on Doctoo as a ##role##. Accept within ##days## days: ##link##`
+5. In `back-end/.env`: `SMS_BACKEND=msg91`, `MSG91_AUTH_KEY=…`, `MSG91_LOGIN_TEMPLATE_ID=…`,
+   `MSG91_INVITATION_TEMPLATE_ID=…` (MSG91's template IDs). Restart the backend and run the check command.
+
+Notes: DLT allows at most **30 characters per variable**, so Doctoo trims long names and lets MSG91
+**shorten the invitation link** (`MSG91_SHORT_URLS=true`). Newer DLT rules may also require the link's
+domain to be **whitelisted** on the DLT portal — use your production domain there.
+
+## WhatsApp with MSG91
+
+Login codes and invitations to a mobile number go on **WhatsApp** (no DLT needed — WhatsApp has its own
+template approval by Meta). In development they appear in Mailpit as `whatsapp+<number>@doctoo.local`.
+
+**Check WhatsApp settings** (sends a sample login code right away):
+```powershell
+python -m app.scripts.send_test_whatsapp +919876543210
+```
+
+### Setup
+1. **MSG91 → WhatsApp → Onboard**: connect a Meta Business account and a phone number that is **not**
+   already used on the WhatsApp app. Set the display name to *Doctoo*.
+2. **Create two templates** in MSG91 (language **English**) and wait for Meta to approve them:
+
+   | Name | Category | Content |
+   |---|---|---|
+   | `doctoo_login_code` | **Authentication** | Meta's fixed text: *"{{1}} is your verification code. For your security, do not share this code."* — tick "Add security recommendation", set expiry **10 minutes**, button **Copy code** |
+   | `doctoo_invitation` | **Utility** | `{{1}} invited you to join {{2}} on Doctoo as a {{3}}. Accept within {{4}} days: {{5}}` |
+
+   Sample values for the invitation (Meta asks for them): `Dr. Anita Sharma`, `Sunrise Clinic`, `doctor`, `7`,
+   `https://doctoo.in/invite?token=abc123`.
+3. In `back-end/.env`: `WHATSAPP_BACKEND=msg91`, `MSG91_AUTH_KEY=…`, `MSG91_WHATSAPP_NUMBER=91…`
+   (template names already match). Restart the backend and run the check command.
+4. MSG91 shows a **sample API request** for each approved template — if a send fails, compare it with
+   `Msg91WhatsAppSender.payload()` in `app/services/whatsapp.py`.
+
+The login page offers **WhatsApp** and/or **SMS** codes depending on what is configured
+(`GET /api/v1/auth/options`): until DLT is done, production shows WhatsApp only.
 
 ## Email
 

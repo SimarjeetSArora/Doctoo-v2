@@ -43,6 +43,50 @@ class Settings(BaseSettings):
     smtp_security: Literal["starttls", "ssl", "none"] = "none"
     smtp_timeout_seconds: float = 15
 
+    # SMS: "mailpit" shows texts in the dev inbox at localhost:8025; "console" prints them in the
+    # backend terminal; "msg91" sends real SMS (needs the MSG91 settings below).
+    sms_backend: Literal["mailpit", "console", "msg91"] = "mailpit"
+    sms_mailpit_host: str = "localhost"
+    sms_mailpit_port: int = 1025
+
+    # MSG91 (India). Template IDs come from MSG91's SMS > Templates page, after DLT approval.
+    msg91_auth_key: str = ""
+    msg91_login_template_id: str = ""
+    msg91_invitation_template_id: str = ""
+    msg91_short_urls: bool = True  # shorten links to fit DLT's 30-character variable limit
+    msg91_base_url: str = "https://control.msg91.com/api/v5"
+
+    # WhatsApp: same backend choices as SMS ("mailpit" | "console" | "msg91").
+    whatsapp_backend: Literal["mailpit", "console", "msg91"] = "mailpit"
+    msg91_whatsapp_number: str = ""  # your WhatsApp Business number in MSG91, e.g. 919876543210
+    msg91_whatsapp_login_template: str = "doctoo_login_code"
+    msg91_whatsapp_invitation_template: str = "doctoo_invitation"
+    msg91_whatsapp_language: str = "en"
+    msg91_whatsapp_namespace: str = ""  # only if MSG91's sample request includes one
+    msg91_whatsapp_url: str = (
+        "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/"
+    )
+    # How invitations to a mobile number are delivered.
+    phone_invite_via: Literal["whatsapp", "sms"] = "whatsapp"
+
+    @property
+    def whatsapp_ready(self) -> bool:
+        if self.whatsapp_backend != "msg91":
+            return True
+        return bool(self.msg91_auth_key and self.msg91_whatsapp_number)
+
+    @property
+    def sms_ready(self) -> bool:
+        if self.sms_backend != "msg91":
+            return True
+        return bool(self.msg91_auth_key and self.msg91_login_template_id)
+
+    def phone_code_channels(self) -> list[str]:
+        """Ways a login code can reach a phone right now (WhatsApp first)."""
+        return [
+            c for c, ready in (("whatsapp", self.whatsapp_ready), ("sms", self.sms_ready)) if ready
+        ]
+
     @property
     def is_production(self) -> bool:
         return self.environment == "production"

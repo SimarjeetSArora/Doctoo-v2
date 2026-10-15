@@ -14,12 +14,17 @@ const COMING_NEXT = [
 
 export function DashboardPage() {
   const { me, membership } = useAuth()
-  const firstName = me?.user.full_name.split(' ')[0]
+  const user = me?.user
+  // "Dr. Simarjeet" for doctors/professors, otherwise just the first name.
+  const greetingName =
+    user && (user.salutation === 'Dr.' || user.salutation === 'Prof.')
+      ? `${user.salutation} ${user.first_name}`
+      : user?.first_name
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Hello, {firstName}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Hello, {greetingName}</h1>
         <p className="text-muted-foreground">{membership?.clinic_name} is set up on Doctoo.</p>
       </div>
 

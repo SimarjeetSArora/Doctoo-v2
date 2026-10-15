@@ -47,6 +47,7 @@ class MemberOut(BaseModel):
     user_id: uuid.UUID
     full_name: str
     email: str
+    phone: str | None
     role: Role
     is_active: bool
     joined_at: datetime

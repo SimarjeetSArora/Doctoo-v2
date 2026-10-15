@@ -42,6 +42,7 @@ def _member_out(member: ClinicMember, user: User) -> MemberOut:
         user_id=user.id,
         full_name=user.full_name,
         email=user.email,
+        phone=user.phone,
         role=member.role,
         is_active=member.is_active,
         joined_at=member.created_at,
@@ -54,7 +55,7 @@ async def list_members(ctx: ClinicCtx, db: DbSession) -> list[MemberOut]:
         select(ClinicMember, User)
         .join(User, User.id == ClinicMember.user_id)
         .where(ClinicMember.clinic_id == ctx.clinic_id)
-        .order_by(ClinicMember.is_active.desc(), User.full_name)
+        .order_by(ClinicMember.is_active.desc(), User.first_name, User.last_name)
     )
     return [_member_out(member, user) for member, user in rows.all()]
 

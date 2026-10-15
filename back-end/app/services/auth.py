@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.security import create_access_token, generate_token, hash_token
-from app.models import Clinic, ClinicMember, Role, User, UserSession
+from app.models import Clinic, ClinicMember, OtpChannel, Role, User, UserSession
 from app.schemas.auth import TokenResponse
 
 REFRESH_COOKIE = "doctoo_refresh"
@@ -20,6 +20,25 @@ def utcnow() -> datetime:
 
 async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
     return await db.scalar(select(User).where(User.email == email.lower()))
+
+
+async def get_user_by_phone(db: AsyncSession, phone: str) -> User | None:
+    return await db.scalar(select(User).where(User.phone == phone))
+
+
+async def get_user_by_identifier(db: AsyncSession, channel: OtpChannel, target: str) -> User | None:
+    """Finds a user by email address or (E.164) mobile number."""
+    if channel == OtpChannel.EMAIL:
+        return await get_user_by_email(db, target)
+    return await get_user_by_phone(db, target)
+
+
+def mark_verified(user: User, channel: OtpChannel) -> None:
+    """Records that the user just proved they own this email address / phone number."""
+    if channel == OtpChannel.EMAIL:
+        user.email_verified_at = user.email_verified_at or utcnow()
+    else:
+        user.phone_verified_at = user.phone_verified_at or utcnow()
 
 
 async def create_clinic_with_owner(db: AsyncSession, user: User, clinic: Clinic) -> Clinic:

@@ -43,7 +43,7 @@ export function OnboardingPage() {
 
   return (
     <AuthLayout
-      title={`Welcome, ${me?.user.full_name.split(' ')[0] ?? ''}!`}
+      title={`Welcome, ${me?.user.first_name ?? ''}!`}
       description="You aren't part of any clinic right now. Create your own, or open the invitation link a clinic owner emailed you."
       footer={
         <button className="underline underline-offset-4" onClick={() => signOut()}>
