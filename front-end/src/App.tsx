@@ -10,6 +10,14 @@ import { RegisterPage } from '@/features/auth/RegisterPage'
 import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { ClinicSettingsPage } from '@/features/settings/ClinicSettingsPage'
+import { PatientAuthProvider, PatientGuestOnly, RequirePatient } from '@/features/patient-app/patient-auth'
+import { PatientLayout } from '@/features/patient-app/PatientLayout'
+import { PatientLoginPage } from '@/features/patient-app/PatientLoginPage'
+import { ProfilePage } from '@/features/patient-app/ProfilePage'
+import { ProfilesPage } from '@/features/patient-app/ProfilesPage'
+import { PatientDetailPage } from '@/features/patients/PatientDetailPage'
+import { EditPatientPage, NewPatientPage } from '@/features/patients/PatientFormPages'
+import { PatientsPage } from '@/features/patients/PatientsPage'
 import { SystemStatusPage } from '@/features/system/SystemStatusPage'
 import { TeamPage } from '@/features/team/TeamPage'
 import { AppLayout } from '@/layouts/AppLayout'
@@ -36,8 +44,32 @@ const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { path: '/', element: <DashboardPage /> },
+          { path: '/patients', element: <PatientsPage /> },
+          { path: '/patients/new', element: <NewPatientPage /> },
+          { path: '/patients/:patientId', element: <PatientDetailPage /> },
+          { path: '/patients/:patientId/edit', element: <EditPatientPage /> },
           { path: '/team', element: <TeamPage /> },
           { path: '/settings', element: <ClinicSettingsPage /> },
+        ],
+      },
+    ],
+  },
+  // Patient app: its own login, separate from clinic staff.
+  {
+    path: '/patient',
+    element: <PatientAuthProvider />,
+    children: [
+      { element: <PatientGuestOnly />, children: [{ path: 'login', element: <PatientLoginPage /> }] },
+      {
+        element: <RequirePatient />,
+        children: [
+          {
+            element: <PatientLayout />,
+            children: [
+              { index: true, element: <ProfilesPage /> },
+              { path: 'profile/:profileId', element: <ProfilePage /> },
+            ],
+          },
         ],
       },
     ],

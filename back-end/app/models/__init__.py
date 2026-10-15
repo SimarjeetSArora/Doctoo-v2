@@ -11,6 +11,7 @@ from app.models.auth import (
 from app.models.base import Base
 from app.models.clinic import Clinic
 from app.models.patient import Gender, Patient
+from app.models.patient_portal import PatientAccount, PatientSession
 from app.models.user import ClinicMember, Role, Salutation, User
 
 __all__ = [
@@ -25,6 +26,8 @@ __all__ = [
     "OtpPurpose",
     "PasswordResetToken",
     "Patient",
+    "PatientAccount",
+    "PatientSession",
     "Role",
     "Salutation",
     "User",

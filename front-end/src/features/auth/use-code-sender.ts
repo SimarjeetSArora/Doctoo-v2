@@ -4,9 +4,22 @@ import { api } from '@/lib/api'
 import type { OtpChannel, OtpResponse, PhoneDelivery } from '@/lib/types'
 
 type Purpose = 'register' | 'login'
+type SendRequest = (
+  channel: OtpChannel,
+  target: string,
+  delivery: PhoneDelivery,
+) => Promise<OtpResponse>
 
-/** Sends one-time codes and tracks where the last one went plus the resend countdown. */
-export function useCodeSender(purpose: Purpose) {
+/**
+ * Sends one-time codes and tracks where the last one went plus the resend countdown.
+ * Pass a purpose for staff codes, or your own request function (the patient app does).
+ */
+export function useCodeSender(purposeOrRequest: Purpose | SendRequest) {
+  const request: SendRequest =
+    typeof purposeOrRequest === 'function'
+      ? purposeOrRequest
+      : (channel, target, delivery) =>
+          api.post<OtpResponse>('/auth/otp', { channel, target, purpose: purposeOrRequest, delivery })
   const [sentTo, setSentTo] = useState<string | null>(null)
   const [cooldown, setCooldown] = useState(0)
   const [ttlMinutes, setTtlMinutes] = useState(10)
@@ -26,12 +39,7 @@ export function useCodeSender(purpose: Purpose) {
   ): Promise<OtpResponse> {
     setSending(true)
     try {
-      const response = await api.post<OtpResponse>('/auth/otp', {
-        channel,
-        target,
-        purpose,
-        delivery,
-      })
+      const response = await request(channel, target, delivery)
       setSentTo(target)
       setTtlMinutes(response.expires_in_minutes)
       setCooldown(response.resend_after_seconds)

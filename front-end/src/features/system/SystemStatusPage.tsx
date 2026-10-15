@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { apiFetch } from '@/lib/api'
+import { api } from '@/lib/api'
 
 type Health = { status: string; database: 'ok' | 'unreachable' }
 
@@ -22,7 +22,7 @@ function StatusRow({ label, ok, pending }: { label: string; ok: boolean; pending
 export function SystemStatusPage() {
   const health = useQuery({
     queryKey: ['health'],
-    queryFn: () => apiFetch<Health>('/health'),
+    queryFn: () => api.get<Health>('/health'),
     retry: false,
   })
 

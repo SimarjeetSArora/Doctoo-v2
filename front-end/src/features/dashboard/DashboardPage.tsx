@@ -1,4 +1,4 @@
-import { CalendarDays, Receipt, UsersRound } from 'lucide-react'
+import { CalendarDays, FileText, UsersRound } from 'lucide-react'
 import { Link } from 'react-router'
 
 import { Badge } from '@/components/ui/badge'
@@ -6,10 +6,21 @@ import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuth } from '@/features/auth/auth-context'
 
-const COMING_NEXT = [
-  { icon: UsersRound, title: 'Patients', text: 'Register patients and find them instantly by phone.' },
+type Feature = { icon: React.ElementType; title: string; text: string; to?: string }
+
+const FEATURES: Feature[] = [
+  {
+    icon: UsersRound,
+    title: 'Patients',
+    text: 'Register patients and find them instantly by name or phone.',
+    to: '/patients',
+  },
   { icon: CalendarDays, title: 'Appointments', text: 'Day and week calendar for every doctor.' },
-  { icon: Receipt, title: 'Billing', text: 'GST-ready invoices, UPI payments and daily collections.' },
+  {
+    icon: FileText,
+    title: 'Prescriptions & reports',
+    text: 'Write prescriptions, upload reports, share them on WhatsApp.',
+  },
 ]
 
 export function DashboardPage() {
@@ -45,18 +56,27 @@ export function DashboardPage() {
       )}
 
       <div className="grid gap-4 md:grid-cols-3">
-        {COMING_NEXT.map(({ icon: Icon, title, text }) => (
-          <Card key={title}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <Icon className="size-5 text-muted-foreground" />
-                <Badge variant="secondary">Coming soon</Badge>
-              </div>
-              <CardTitle className="pt-2">{title}</CardTitle>
-              <CardDescription>{text}</CardDescription>
-            </CardHeader>
-          </Card>
-        ))}
+        {FEATURES.map(({ icon: Icon, title, text, to }) => {
+          const card = (
+            <Card className={to ? 'h-full transition-colors hover:border-primary/50' : 'h-full'}>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <Icon className="size-5 text-muted-foreground" />
+                  {to ? <Badge>Open</Badge> : <Badge variant="secondary">Coming soon</Badge>}
+                </div>
+                <CardTitle className="pt-2">{title}</CardTitle>
+                <CardDescription>{text}</CardDescription>
+              </CardHeader>
+            </Card>
+          )
+          return to ? (
+            <Link key={title} to={to}>
+              {card}
+            </Link>
+          ) : (
+            <div key={title}>{card}</div>
+          )
+        })}
       </div>
     </div>
   )

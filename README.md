@@ -59,6 +59,22 @@ cd front-end && npm run dev                            # http://localhost:5173
 - Every clinic request sends `X-Clinic-Id`; the backend checks membership and role (`app/api/deps.py`).
 - Emails (password reset, invitations) are sent over **SMTP** in the background, after the response.
 
+## Patients and the patient app
+
+**Clinic side** (`/patients`): register, search (name or 3+ digits of the mobile number), view, edit and
+archive patients. Archiving hides a patient but keeps the record. Owners and doctors can archive;
+receptionists can register and edit. Record each patient's **WhatsApp/SMS consent** (DPDP).
+
+**Patient app** (`/patient`, mobile-first, separate login from clinic staff):
+1. The patient enters the mobile number their clinic has and gets a code on **WhatsApp** (or SMS).
+2. One number can hold several people (family members) and the same person at several clinics:
+   records with the same name + date of birth are shown as **one profile**.
+3. The first time a profile is opened, the patient confirms its **date of birth** (5 tries, then locked
+   for an hour). Before that only a masked name ("Kavya S.") is shown — protects against a mistyped
+   number at reception. Changing a patient's phone or birth date at the clinic asks for confirmation again.
+4. Tabs: **Clinics · Doctors · Prescriptions · Reports** (prescriptions and reports fill in once the
+   clinic side can create them).
+
 ## SMS
 
 | Setting `SMS_BACKEND` | Where texts go |

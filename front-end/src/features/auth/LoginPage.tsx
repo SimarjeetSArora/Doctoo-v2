@@ -143,6 +143,12 @@ export function LoginPage() {
           <Link to="/register" className="font-medium text-foreground underline underline-offset-4">
             Create your clinic account
           </Link>
+          <span className="mt-2 block text-center">
+            Are you a patient?{' '}
+            <Link to="/patient/login" className="font-medium text-foreground underline underline-offset-4">
+              Open the patient app
+            </Link>
+          </span>
         </>
       }
     >

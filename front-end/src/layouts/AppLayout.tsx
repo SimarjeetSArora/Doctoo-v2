@@ -46,7 +46,7 @@ type NavItem = { label: string; to: string; icon: React.ElementType; soon?: bool
 
 const CLINIC_NAV: NavItem[] = [
   { label: 'Dashboard', to: '/', icon: LayoutDashboard },
-  { label: 'Patients', to: '/patients', icon: UsersRound, soon: true },
+  { label: 'Patients', to: '/patients', icon: UsersRound },
   { label: 'Appointments', to: '/appointments', icon: CalendarDays, soon: true },
 ]
 const ADMIN_NAV: NavItem[] = [
@@ -56,6 +56,11 @@ const ADMIN_NAV: NavItem[] = [
 
 function initials(user: { first_name: string; last_name: string }) {
   return `${user.first_name[0] ?? ''}${user.last_name[0] ?? ''}`.toUpperCase()
+}
+
+/** /patients/123 still highlights "Patients"; "/" only matches the dashboard itself. */
+function isActive(pathname: string, to: string) {
+  return to === '/' ? pathname === '/' : pathname === to || pathname.startsWith(`${to}/`)
 }
 
 function NavGroup({ label, items }: { label: string; items: NavItem[] }) {
@@ -73,7 +78,7 @@ function NavGroup({ label, items }: { label: string; items: NavItem[] }) {
                   <span>{item.label}</span>
                 </SidebarMenuButton>
               ) : (
-                <SidebarMenuButton asChild isActive={pathname === item.to} tooltip={item.label}>
+                <SidebarMenuButton asChild isActive={isActive(pathname, item.to)} tooltip={item.label}>
                   <NavLink to={item.to} end>
                     <item.icon />
                     <span>{item.label}</span>
@@ -156,9 +161,6 @@ function UserMenu() {
   )
 }
 
-const PAGE_TITLES: Record<string, string> = Object.fromEntries(
-  [...CLINIC_NAV, ...ADMIN_NAV].map((item) => [item.to, item.label]),
-)
 
 export function AppLayout() {
   const { pathname } = useLocation()
@@ -189,7 +191,10 @@ export function AppLayout() {
         <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
-          <span className="text-sm font-medium">{PAGE_TITLES[pathname] ?? 'Doctoo'}</span>
+          <span className="text-sm font-medium">
+            {[...CLINIC_NAV, ...ADMIN_NAV].find((item) => isActive(pathname, item.to))?.label ??
+              'Doctoo'}
+          </span>
         </header>
         <div className="flex-1 p-4 md:p-6">
           <Outlet />

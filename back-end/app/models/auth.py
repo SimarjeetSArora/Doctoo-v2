@@ -76,6 +76,7 @@ class OtpChannel(enum.StrEnum):
 class OtpPurpose(enum.StrEnum):
     REGISTER = "register"  # prove a new email belongs to you (sign-up, accepting an invite)
     LOGIN = "login"  # log in without a password
+    PATIENT_LOGIN = "patient_login"  # patient app login
 
 
 class VerificationCode(Base):
