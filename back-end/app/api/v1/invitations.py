@@ -10,7 +10,7 @@ from app.api.deps import OwnerCtx
 from app.core.config import get_settings
 from app.core.database import DbSession
 from app.core.security import generate_token, hash_password, hash_token
-from app.models import Clinic, ClinicMember, Invitation, User
+from app.models import Clinic, ClinicMember, Invitation, OtpChannel, OtpPurpose, User
 from app.schemas.auth import TokenResponse
 from app.schemas.invitation import (
     AcceptInvitationRequest,
@@ -20,11 +20,23 @@ from app.schemas.invitation import (
 )
 from app.services.auth import (
     get_user_by_email,
+    get_user_by_identifier,
+    get_user_by_phone,
+    mark_verified,
     revoke_all_sessions,
     start_session,
     utcnow,
 )
 from app.services.email import EmailMessage, EmailSender, deliver, get_email_sender
+from app.services.otp import OtpError, consume_code
+from app.services.sms import SmsMessage, SmsSender, SmsTemplate, deliver_sms, get_sms_sender
+from app.services.whatsapp import (
+    WhatsAppMessage,
+    WhatsAppSender,
+    WhatsAppTemplate,
+    deliver_whatsapp,
+    get_whatsapp_sender,
+)
 
 router = APIRouter(prefix="/invitations", tags=["invitations"])
 
@@ -42,6 +54,7 @@ def _out(invitation: Invitation, inviter: User) -> InvitationOut:
     return InvitationOut(
         id=invitation.id,
         email=invitation.email,
+        phone=invitation.phone,
         role=invitation.role,
         invited_by_name=inviter.full_name,
         created_at=invitation.created_at,
@@ -55,9 +68,13 @@ async def create_invitation(
     ctx: OwnerCtx,
     db: DbSession,
     email_sender: Annotated[EmailSender, Depends(get_email_sender)],
+    sms_sender: Annotated[SmsSender, Depends(get_sms_sender)],
+    whatsapp_sender: Annotated[WhatsAppSender, Depends(get_whatsapp_sender)],
     background: BackgroundTasks,
 ) -> InvitationOut:
-    existing_user = await get_user_by_email(db, body.email)
+    channel = OtpChannel.EMAIL if body.email else OtpChannel.PHONE
+    target = body.email or body.phone
+    existing_user = await get_user_by_identifier(db, channel, target)
     if existing_user and await db.scalar(
         select(ClinicMember).where(
             ClinicMember.clinic_id == ctx.clinic_id,
@@ -67,10 +84,11 @@ async def create_invitation(
     ):
         raise HTTPException(status.HTTP_409_CONFLICT, "This person is already on your team")
 
-    # Re-inviting replaces any earlier pending invitation for the same email.
+    # Re-inviting replaces any earlier pending invitation to the same email / number.
+    same_contact = Invitation.email == body.email if body.email else Invitation.phone == body.phone
     await db.execute(
         update(Invitation)
-        .where(Invitation.clinic_id == ctx.clinic_id, Invitation.email == body.email, *_pending())
+        .where(Invitation.clinic_id == ctx.clinic_id, same_contact, *_pending())
         .values(revoked_at=utcnow())
     )
 
@@ -79,6 +97,7 @@ async def create_invitation(
     invitation = Invitation(
         clinic_id=ctx.clinic_id,
         email=body.email,
+        phone=body.phone,
         role=body.role,
         token_hash=hash_token(token),
         invited_by_id=ctx.user.id,
@@ -89,20 +108,35 @@ async def create_invitation(
     await db.refresh(invitation)
 
     clinic = await db.get(Clinic, ctx.clinic_id)
+    link = f"{settings.frontend_url}/invite?token={token}"
     # Sent after the response, so the request stays fast.
-    background.add_task(
-        deliver,
-        email_sender,
-        EmailMessage(
+    if channel == OtpChannel.EMAIL:
+        message = EmailMessage(
             to=body.email,
             subject=f"{ctx.user.full_name} invited you to {clinic.name} on Doctoo",
             body=(
                 f"{ctx.user.full_name} has invited you to join {clinic.name} as a {body.role}.\n\n"
                 f"Accept the invitation (valid for {settings.invitation_expire_days} days):\n"
-                f"{settings.frontend_url}/invite?token={token}"
+                f"{link}"
             ),
-        ),
-    )
+        )
+        background.add_task(deliver, email_sender, message)
+    else:
+        params = {
+            "inviter": ctx.user.full_name,
+            "clinic": clinic.name,
+            "role": body.role,
+            "days": str(settings.invitation_expire_days),
+            "link": link,
+        }
+        if settings.phone_invite_via == "whatsapp":
+            message = WhatsAppMessage(
+                to=body.phone, template=WhatsAppTemplate.INVITATION, params=params
+            )
+            background.add_task(deliver_whatsapp, whatsapp_sender, message)
+        else:
+            sms = SmsMessage(to=body.phone, template=SmsTemplate.INVITATION, params=params)
+            background.add_task(deliver_sms, sms_sender, sms)
     return _out(invitation, ctx.user)
 
 
@@ -130,7 +164,7 @@ async def revoke_invitation(invitation_id: uuid.UUID, ctx: OwnerCtx, db: DbSessi
     await db.commit()
 
 
-# ---------- Public endpoints: used by the person who received the invite email ----------
+# ---------- Public endpoints: used by the person who received the invitation ----------
 
 
 async def _get_pending_invitation(db: AsyncSession, token: str) -> Invitation:
@@ -142,21 +176,43 @@ async def _get_pending_invitation(db: AsyncSession, token: str) -> Invitation:
     return invitation
 
 
+def _channel(invitation: Invitation) -> OtpChannel:
+    return OtpChannel.EMAIL if invitation.email else OtpChannel.PHONE
+
+
+async def _invited_user(db: AsyncSession, invitation: Invitation) -> User | None:
+    """The existing account the invitation is for, if any."""
+    user = await get_user_by_identifier(db, _channel(invitation), invitation.sent_to)
+    if user is not None and _channel(invitation) == OtpChannel.PHONE and not user.phone_verified_at:
+        # Anyone can type any number at sign-up. Joining a clinic through this account could hand
+        # the clinic's access to whoever registered it, not the number's real owner.
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "This mobile number belongs to a Doctoo account that hasn't verified it yet. "
+            "Please ask the clinic owner to invite you by email instead.",
+        )
+    return user
+
+
 @router.get("/lookup")
 async def lookup_invitation(token: str, db: DbSession) -> InvitationLookup:
     invitation = await _get_pending_invitation(db, token)
     clinic = await db.get(Clinic, invitation.clinic_id)
     inviter = await db.get(User, invitation.invited_by_id)
-    user = await get_user_by_email(db, invitation.email)
+    user = await _invited_user(db, invitation)
+    by_phone = _channel(invitation) == OtpChannel.PHONE
     return InvitationLookup(
         clinic_id=clinic.id,
         clinic_name=clinic.name,
+        channel=_channel(invitation),
         email=invitation.email,
+        phone=invitation.phone,
         role=invitation.role,
         invited_by_name=inviter.full_name,
         needs_name=user is None,
         # Existing, verified users just join. New or never-verified accounts set a password.
-        needs_password=user is None or user.email_verified_at is None,
+        needs_password=user is None or (not by_phone and user.email_verified_at is None),
+        needs_email=user is None and by_phone,
     )
 
 
@@ -168,21 +224,52 @@ async def accept_invitation(
     user_agent: Annotated[str | None, Header()] = None,
 ) -> TokenResponse:
     invitation = await _get_pending_invitation(db, body.token)
+    channel = _channel(invitation)
+    user = await _invited_user(db, invitation)
 
-    user = await get_user_by_email(db, invitation.email)
     if user is None:
-        if not body.full_name or not body.password:
+        if body.profile is None or not body.password:
             raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_CONTENT, "Name and password are required"
+                status.HTTP_422_UNPROCESSABLE_CONTENT, "Your details and a password are required"
             )
+        profile = body.profile.model_dump()
+        if channel == OtpChannel.EMAIL:
+            email = invitation.email
+        else:
+            # Invited by mobile: that number is theirs; they also need a verified email.
+            profile["phone"] = invitation.phone
+            if not body.email or not body.email_code:
+                raise HTTPException(
+                    status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    "Please add your email address and the code we sent to it",
+                )
+            if await get_user_by_email(db, body.email):
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    "An account with this email already exists. "
+                    "Ask the clinic owner to invite that email instead.",
+                )
+            try:
+                await consume_code(
+                    db, OtpChannel.EMAIL, body.email, OtpPurpose.REGISTER, body.email_code
+                )
+            except OtpError as exc:
+                raise HTTPException(exc.status_code, exc.message) from exc
+            email = body.email
+        if await get_user_by_phone(db, profile["phone"]):
+            raise HTTPException(
+                status.HTTP_409_CONFLICT, "This mobile number is already registered"
+            )
+
         user = User(
-            email=invitation.email,
-            full_name=body.full_name,
+            email=email,
             hashed_password=hash_password(body.password),
+            email_verified_at=utcnow(),  # proven by the invite link or the emailed code
+            **profile,
         )
         db.add(user)
         await db.flush()
-    elif user.email_verified_at is None:
+    elif channel == OtpChannel.EMAIL and user.email_verified_at is None:
         # Clicking the emailed link proves they own this address; any password set before
         # that might not be theirs, so replace it and end other sessions.
         if not body.password:
@@ -192,7 +279,7 @@ async def accept_invitation(
 
     if not user.is_active:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "This account is disabled")
-    user.email_verified_at = user.email_verified_at or utcnow()
+    mark_verified(user, channel)  # the invitation link reached them there
 
     member = await db.scalar(
         select(ClinicMember).where(

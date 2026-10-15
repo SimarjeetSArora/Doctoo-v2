@@ -8,11 +8,14 @@ export function AuthLayout({
   description,
   children,
   footer,
+  wide = false,
 }: {
   title: string
   description?: React.ReactNode
   children: React.ReactNode
   footer?: React.ReactNode
+  /** Wider card for longer forms (sign-up). */
+  wide?: boolean
 }) {
   return (
     <main className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted/40 p-4">
@@ -22,7 +25,7 @@ export function AuthLayout({
         </span>
         Doctoo
       </div>
-      <Card className="w-full max-w-sm">
+      <Card className={wide ? 'w-full max-w-lg' : 'w-full max-w-sm'}>
         <CardHeader>
           <CardTitle className="text-xl">{title}</CardTitle>
           {description && <CardDescription>{description}</CardDescription>}

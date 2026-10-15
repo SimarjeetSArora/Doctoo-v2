@@ -1,10 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { z } from 'zod'
 
-import { TextField } from '@/components/TextField'
+import { PasswordField } from '@/components/PasswordField'
 import { Button } from '@/components/ui/button'
 import { FieldGroup } from '@/components/ui/field'
 import { api } from '@/lib/api'
@@ -30,8 +30,12 @@ export function ResetPasswordPage() {
   const { signIn } = useAuth()
   const navigate = useNavigate()
   const [error, setError] = useState<string>()
-  const form = useForm<Values>({ resolver: zodResolver(schema) })
+  const form = useForm<Values>({
+    resolver: zodResolver(schema),
+    defaultValues: { new_password: '', confirm: '' },
+  })
   const { errors, isSubmitting } = form.formState
+  const newPassword = useWatch({ control: form.control, name: 'new_password' })
 
   async function onSubmit({ new_password }: Values) {
     setError(undefined)
@@ -56,18 +60,16 @@ export function ResetPasswordPage() {
       <form noValidate onSubmit={form.handleSubmit(onSubmit)}>
         <FieldGroup>
           <FormError message={token ? error : 'This reset link is missing its token.'} />
-          <TextField
+          <PasswordField
             label="New password"
-            type="password"
             autoComplete="new-password"
             autoFocus
-            description="At least 8 characters"
             registration={form.register('new_password')}
             error={errors.new_password}
+            strengthOf={newPassword}
           />
-          <TextField
+          <PasswordField
             label="Confirm new password"
-            type="password"
             autoComplete="new-password"
             registration={form.register('confirm')}
             error={errors.confirm}

@@ -1,8 +1,18 @@
 from httpx import AsyncClient
 
-from tests.conftest import Outbox, bearer, register
+from tests.conftest import PROFILE, Outbox, bearer, register, unique_phone
 
 API = "/api/v1"
+
+
+def staff() -> dict:
+    return {
+        **PROFILE,
+        "salutation": "Ms.",
+        "first_name": "New",
+        "last_name": "Staff",
+        "phone": unique_phone(),
+    }
 
 
 async def invite_and_accept(
@@ -12,7 +22,7 @@ async def invite_and_accept(
     assert r.status_code == 201, r.text
     accepted = await client.post(
         f"{API}/invitations/accept",
-        json={"token": outbox.last_token(), "full_name": "New Staff", "password": "staff-pass-123"},
+        json={"token": outbox.last_token(), "profile": staff(), "password": "staff-pass-123"},
     )
     assert accepted.status_code == 200, accepted.text
     return {**bearer(accepted), "X-Clinic-Id": owner["X-Clinic-Id"]}
@@ -84,7 +94,7 @@ async def test_invitation_link_single_use_and_revocable(
     await invite_and_accept(client, outbox, owner, "rec@example.com", "receptionist")
     reuse = await client.post(
         f"{API}/invitations/accept",
-        json={"token": outbox.last_token(), "full_name": "Again", "password": "staff-pass-123"},
+        json={"token": outbox.last_token(), "profile": staff(), "password": "staff-pass-123"},
     )
     assert reuse.status_code == 404
 

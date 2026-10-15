@@ -11,6 +11,12 @@ alembic==1.20.0
 pydantic-settings==2.15.0
 email-validator==2.3.0
 
+# Phone number validation (Google libphonenumber)
+phonenumbers==9.0.41
+
+# HTTP client (SMS provider API)
+httpx==0.28.1
+
 # Email over SMTP (async)
 aiosmtplib==5.1.3
 
