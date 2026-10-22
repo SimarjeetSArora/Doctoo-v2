@@ -59,6 +59,38 @@ cd front-end && npm run dev                            # http://localhost:5173
 - Every clinic request sends `X-Clinic-Id`; the backend checks membership and role (`app/api/deps.py`).
 - Emails (password reset, invitations) are sent over **SMTP** in the background, after the response.
 
+## Patients and the patient app
+
+**Clinic side** (`/patients`): register, search (name or 3+ digits of the mobile number), view, edit and
+archive patients. Archiving hides a patient but keeps the record. Owners and doctors can archive;
+receptionists can register and edit. Record each patient's **WhatsApp/SMS consent** (DPDP).
+
+**Patient app** (`/patient`, mobile-first, separate login from clinic staff):
+1. The patient enters the mobile number their clinic has and gets a code on **WhatsApp** (or SMS).
+2. One number can hold several people (family members) and the same person at several clinics:
+   records with the same name + date of birth are shown as **one profile**.
+3. The first time a profile is opened, the patient confirms its **date of birth** (5 tries, then locked
+   for an hour). Before that only a masked name ("Kavya S.") is shown — protects against a mistyped
+   number at reception. Changing a patient's phone or birth date at the clinic asks for confirmation again.
+4. Tabs: **Clinics · Doctors · Prescriptions · Reports** (prescriptions and reports fill in once the
+   clinic side can create them).
+
+## Appointments
+
+- **Doctor hours** (`/doctor-hours`): weekly sessions per doctor (several per day, e.g. 10–1 and 5–8) with a
+  slot length. Owners edit anyone's; doctors their own. "Doctors" = members with the Doctor role, plus owners
+  registered with the title Dr.
+- **Appointments** (`/appointments`): day view with today's **token queue**, week view, doctor filter.
+  Book a free slot, or **Add walk-in** (joins today's queue with the next token).
+- Status flow: Booked → *Check in* (gets a token) → *Start* → *Complete*; or No-show / Cancelled.
+  Check-in only on the appointment's day. Rescheduling is for booked appointments.
+- **No double booking**: besides the app's check, a Postgres exclusion constraint (`btree_gist`) rejects
+  overlapping active bookings for a doctor — safe even when two people book the same slot at once.
+- Times are stored in UTC and shown in the clinic's time zone (`clinics.timezone`, default Asia/Kolkata).
+- Patients with WhatsApp consent get a confirmation when booked or moved (template
+  `doctoo_appointment_confirmed`: *"Hi {{1}}, your appointment with {{2}} at {{3}} is confirmed for {{4}}.
+  Please arrive 10 minutes early."*, category Utility). The patient app shows their visits.
+
 ## SMS
 
 | Setting `SMS_BACKEND` | Where texts go |

@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     msg91_whatsapp_number: str = ""  # your WhatsApp Business number in MSG91, e.g. 919876543210
     msg91_whatsapp_login_template: str = "doctoo_login_code"
     msg91_whatsapp_invitation_template: str = "doctoo_invitation"
+    msg91_whatsapp_appointment_template: str = "doctoo_appointment_confirmed"
     msg91_whatsapp_language: str = "en"
     msg91_whatsapp_namespace: str = ""  # only if MSG91's sample request includes one
     msg91_whatsapp_url: str = (

@@ -27,23 +27,24 @@ def verify_password(password: str, hashed: str | None) -> bool:
     return _password_hash.verify(password, hashed)
 
 
-def create_access_token(user_id: uuid.UUID) -> str:
+def create_access_token(subject_id: uuid.UUID, token_type: str = "access") -> str:
+    """token_type "access" = clinic staff, "patient" = patient app. They never mix."""
     settings = get_settings()
     now = datetime.now(UTC)
     payload = {
-        "sub": str(user_id),
-        "type": "access",
+        "sub": str(subject_id),
+        "type": token_type,
         "iat": now,
         "exp": now + timedelta(minutes=settings.access_token_expire_minutes),
     }
     return jwt.encode(payload, settings.secret_key, algorithm=_JWT_ALGORITHM)
 
 
-def decode_access_token(token: str) -> uuid.UUID | None:
-    """Returns the user id if the token is valid and unexpired, else None."""
+def decode_access_token(token: str, token_type: str = "access") -> uuid.UUID | None:
+    """Returns the subject id if the token is valid, unexpired and of the given type."""
     try:
         payload = jwt.decode(token, get_settings().secret_key, algorithms=[_JWT_ALGORITHM])
-        if payload.get("type") != "access":
+        if payload.get("type") != token_type:
             return None
         return uuid.UUID(payload["sub"])
     except (jwt.PyJWTError, KeyError, ValueError):
