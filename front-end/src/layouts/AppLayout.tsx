@@ -194,8 +194,10 @@ export function AppLayout() {
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
           <span className="text-sm font-medium">
-            {[...CLINIC_NAV, ...ADMIN_NAV].find((item) => isActive(pathname, item.to))?.label ??
-              'Doctoo'}
+            {pathname.startsWith('/consultations/')
+              ? 'Consultation'
+              : ([...CLINIC_NAV, ...ADMIN_NAV].find((item) => isActive(pathname, item.to))?.label ??
+                'Doctoo')}
           </span>
         </header>
         <div className="flex-1 p-4 md:p-6">

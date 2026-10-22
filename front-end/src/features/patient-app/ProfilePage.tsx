@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Building2, CalendarDays, FileText, FlaskConical, Mail, MapPin, Phone, Stethoscope } from 'lucide-react'
+import { ArrowLeft, Building2, CalendarDays, Download, FileText, FlaskConical, Mail, MapPin, Phone, Stethoscope } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 
@@ -7,11 +7,19 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Button } from '@/components/ui/button'
 import { patientApi } from '@/lib/api'
+import { saveBlob } from '@/lib/files'
 import { ageAndGender, formatDate, initials } from '@/lib/format'
 import { formatPhone } from '@/lib/phone'
 import { DEFAULT_ZONE, dateInZone, formatDay, formatTime } from '@/lib/time'
-import { type AppointmentCard, type ClinicCard, type ProfileDetails, STATUS_LABELS } from '@/lib/types'
+import {
+  type AppointmentCard,
+  type ClinicCard,
+  type PrescriptionCard,
+  type ProfileDetails,
+  STATUS_LABELS,
+} from '@/lib/types'
 
 import { usePatientAuth } from './patient-auth'
 
@@ -100,11 +108,15 @@ export function ProfilePage() {
           )}
         </TabsContent>
 
-        <TabsContent value="prescriptions">
-          <Empty
-            icon={FileText}
-            text="No prescriptions yet. When your doctor writes one, it will appear here and can be downloaded as a PDF."
-          />
+        <TabsContent value="prescriptions" className="flex flex-col gap-3">
+          {p.prescriptions.length === 0 ? (
+            <Empty
+              icon={FileText}
+              text="No prescriptions yet. When your doctor writes one, it will appear here and can be downloaded as a PDF."
+            />
+          ) : (
+            p.prescriptions.map((rx) => <PrescriptionItem key={rx.id} profileId={p.id} rx={rx} />)
+          )}
         </TabsContent>
 
         <TabsContent value="reports">
@@ -218,6 +230,50 @@ function VisitItem({ visit: a, highlight }: { visit: AppointmentCard; highlight?
           {a.reason && <div className="text-sm">{a.reason}</div>}
         </div>
         <Badge variant="outline">{STATUS_LABELS[a.status]}</Badge>
+      </CardContent>
+    </Card>
+  )
+}
+
+function PrescriptionItem({ profileId, rx }: { profileId: string; rx: PrescriptionCard }) {
+  const [downloading, setDownloading] = useState(false)
+  async function download() {
+    setDownloading(true)
+    try {
+      const blob = await patientApi.getBlob(`/patient/profiles/${profileId}/prescriptions/${rx.id}.pdf`)
+      saveBlob(blob, `${rx.number}.pdf`)
+    } finally {
+      setDownloading(false)
+    }
+  }
+  return (
+    <Card>
+      <CardContent className="flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="font-medium">{rx.diagnosis || 'Prescription'}</div>
+            <div className="text-sm text-muted-foreground">
+              {formatDay(dateInZone(rx.completed_at, ZONE), { year: 'numeric' })} · {rx.doctor_name} ·{' '}
+              {rx.clinic_name}
+            </div>
+          </div>
+          <Badge variant="outline">{rx.number}</Badge>
+        </div>
+        {rx.medicines.length > 0 && (
+          <ul className="list-inside list-disc text-sm">
+            {rx.medicines.map((m) => (
+              <li key={m}>{m}</li>
+            ))}
+          </ul>
+        )}
+        {rx.follow_up_date && (
+          <div className="text-sm">
+            Follow-up on <strong>{formatDay(rx.follow_up_date, { weekday: 'long' })}</strong>
+          </div>
+        )}
+        <Button variant="outline" onClick={download} disabled={downloading}>
+          <Download /> {downloading ? 'Downloading…' : 'Download PDF'}
+        </Button>
       </CardContent>
     </Card>
   )

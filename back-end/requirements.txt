@@ -20,6 +20,10 @@ phonenumbers==9.0.41
 # HTTP client (SMS provider API)
 httpx==0.28.1
 
+# Prescription PDFs (pure Python; DejaVu font bundled in app/assets/fonts)
+fpdf2==2.8.9
+uharfbuzz==0.56.3  # text shaping for Indian scripts in PDFs
+
 # Email over SMTP (async)
 aiosmtplib==5.1.3
 

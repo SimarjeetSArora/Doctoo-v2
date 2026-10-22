@@ -66,9 +66,14 @@ class AppointmentCard(BaseModel):
 
 
 class PrescriptionCard(BaseModel):
-    """Filled in once doctors can write prescriptions."""
-
-    id: uuid.UUID
+    id: uuid.UUID  # the consultation's id (used for the PDF link)
+    number: str  # RX-2026-00001
+    completed_at: datetime
+    doctor_name: str
+    clinic_name: str
+    diagnosis: str | None
+    medicines: list[str]
+    follow_up_date: date | None
 
 
 class ReportCard(BaseModel):

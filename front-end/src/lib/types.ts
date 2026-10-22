@@ -148,7 +148,7 @@ export type ProfileDetails = {
   clinics: ClinicCard[]
   doctors: DoctorCard[]
   appointments: AppointmentCard[]
-  prescriptions: { id: string }[]
+  prescriptions: PrescriptionCard[]
   reports: { id: string }[]
 }
 
@@ -215,4 +215,77 @@ export type AppointmentCard = {
   reason: string | null
   doctor_name: string
   clinic_name: string
+}
+
+// ---------- Consultations & prescriptions ----------
+
+export type Vitals = {
+  bp_systolic?: number | null
+  bp_diastolic?: number | null
+  pulse?: number | null
+  temperature_f?: number | null
+  spo2?: number | null
+  respiratory_rate?: number | null
+  blood_sugar?: number | null
+  weight_kg?: number | null
+  height_cm?: number | null
+}
+
+export type PrescriptionItem = {
+  medicine: string
+  dose: string
+  timing: string | null
+  duration: string | null
+  instructions: string | null
+}
+
+export type Visit = {
+  id: string
+  status: 'in_progress' | 'completed'
+  appointment_id: string | null
+  patient: {
+    id: string
+    full_name: string
+    phone: string
+    age: number | null
+    gender: Gender | null
+    blood_group: string | null
+    notes: string | null
+    messaging_consent: boolean
+  }
+  doctor_id: string
+  doctor_name: string
+  vitals: Vitals
+  complaints: string | null
+  examination: string | null
+  diagnosis: string | null
+  advice: string | null
+  follow_up_date: string | null
+  items: PrescriptionItem[]
+  prescription_number: string | null
+  created_at: string
+  completed_at: string | null
+  can_edit: boolean
+}
+
+export type VisitSummary = {
+  id: string
+  status: Visit['status']
+  doctor_name: string
+  diagnosis: string | null
+  medicines: string[]
+  prescription_number: string | null
+  created_at: string
+  completed_at: string | null
+}
+
+export type PrescriptionCard = {
+  id: string
+  number: string
+  completed_at: string
+  doctor_name: string
+  clinic_name: string
+  diagnosis: string | null
+  medicines: string[]
+  follow_up_date: string | null
 }

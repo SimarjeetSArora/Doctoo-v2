@@ -8,6 +8,7 @@ from app.api.v1 import (
     invitations,
     patient_portal,
     patients,
+    visits,
 )
 
 # All version-1 endpoints are mounted here; new feature routers get added below.
@@ -19,3 +20,4 @@ api_router.include_router(invitations.router)
 api_router.include_router(patients.router)
 api_router.include_router(patient_portal.router)
 api_router.include_router(appointments.router)
+api_router.include_router(visits.router)

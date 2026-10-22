@@ -91,6 +91,20 @@ receptionists can register and edit. Record each patient's **WhatsApp/SMS consen
   `doctoo_appointment_confirmed`: *"Hi {{1}}, your appointment with {{2}} at {{3}} is confirmed for {{4}}.
   Please arrive 10 minutes early."*, category Utility). The patient app shows their visits.
 
+## Consultations & prescriptions
+
+- **Start** a checked-in appointment → consultation screen: vitals, complaints, examination, diagnosis,
+  prescription (medicine autocomplete from the clinic's own history, dose / timing / duration chips),
+  advice and follow-up. **Autosaves** while typing. Only the patient's doctor (or the clinic owner) can write.
+- **Finish & sign** numbers the prescription per clinic (`RX-2026-00001`), completes the appointment and
+  **locks** the record.
+- **PDF** (fpdf2) on the clinic letterhead; bundled fonts DejaVu Sans + Noto Sans Devanagari/Gurmukhi with
+  HarfBuzz text shaping, so Hindi/Punjabi names render correctly (`app/assets/fonts`, OFL/DejaVu licences).
+- **Send on WhatsApp** (consenting patients only): template `doctoo_prescription` (Utility, **document
+  header**): *"Hi {{1}}, here is your prescription from {{2}} at {{3}}. Get well soon!"*. The PDF is served
+  from an unguessable link valid 30 days (`PUBLIC_API_URL`, must be reachable from the internet in production).
+- Patient app **Rx** tab lists prescriptions with PDF download.
+
 ## SMS
 
 | Setting `SMS_BACKEND` | Where texts go |

@@ -49,7 +49,12 @@ function createApiClient({ refreshPath }: { refreshPath: string }) {
     return refreshInFlight
   }
 
-  async function apiFetch<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
+  async function apiFetch<T>(
+    path: string,
+    init: RequestInit = {},
+    retry = true,
+    as: 'json' | 'blob' = 'json',
+  ): Promise<T> {
     const headers = new Headers(init.headers)
     if (init.body !== undefined) headers.set('Content-Type', 'application/json')
     if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
@@ -58,7 +63,7 @@ function createApiClient({ refreshPath }: { refreshPath: string }) {
     const response = await fetch(`${API_BASE}${path}`, { ...init, headers })
 
     if (response.status === 401 && retry && accessToken && (await refreshAccessToken())) {
-      return apiFetch<T>(path, init, false)
+      return apiFetch<T>(path, init, false, as)
     }
     if (!response.ok) {
       throw new ApiError(response.status, await errorMessage(response))
@@ -66,6 +71,7 @@ function createApiClient({ refreshPath }: { refreshPath: string }) {
     if (response.status === 204 || response.status === 202) {
       return undefined as T
     }
+    if (as === 'blob') return (await response.blob()) as T
     return response.json() as Promise<T>
   }
 
@@ -78,6 +84,8 @@ function createApiClient({ refreshPath }: { refreshPath: string }) {
       clinicId = id
     },
     get: <T>(path: string) => apiFetch<T>(path),
+    /** Downloads a file (e.g. a PDF) with the login token attached. */
+    getBlob: (path: string) => apiFetch<Blob>(path, {}, true, 'blob'),
     post: <T>(path: string, body?: unknown) =>
       apiFetch<T>(path, {
         method: 'POST',

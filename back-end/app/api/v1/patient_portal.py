@@ -28,6 +28,8 @@ from app.models import (
     OtpPurpose,
     PatientAccount,
     User,
+    Visit,
+    VisitStatus,
 )
 from app.schemas.auth import OtpResponse, TokenResponse
 from app.schemas.patient_portal import (
@@ -37,6 +39,7 @@ from app.schemas.patient_portal import (
     PatientLoginRequest,
     PatientMe,
     PatientOtpRequest,
+    PrescriptionCard,
     ProfileDetails,
     ProfileSummary,
     VerifyProfileRequest,
@@ -55,7 +58,13 @@ from app.services.patient_portal import (
     records_for_phone,
     start_patient_session,
 )
-from app.services.scheduling import clinic_doctors
+from app.services.prescriptions import (
+    content_disposition,
+    pdf_filename,
+    prescription_label,
+    render_prescription_pdf,
+)
+from app.services.scheduling import clinic_doctors, clinic_zone
 from app.services.sms import SmsMessage, SmsSender, SmsTemplate, deliver_sms, get_sms_sender
 from app.services.whatsapp import (
     WhatsAppMessage,
@@ -300,6 +309,30 @@ async def profile_details(
         for appt, doctor in rows.all()
     ]
 
+    rows = await db.execute(
+        select(Visit, User)
+        .join(User, User.id == Visit.doctor_id)
+        .where(
+            Visit.patient_id.in_([r.id for r in profile.records]),
+            Visit.status == VisitStatus.COMPLETED,
+        )
+        .order_by(Visit.completed_at.desc())
+        .limit(50)
+    )
+    prescriptions = [
+        PrescriptionCard(
+            id=visit.id,
+            number=prescription_label(visit),
+            completed_at=visit.completed_at,
+            doctor_name=doctor.full_name,
+            clinic_name=clinics[visit.clinic_id].name,
+            diagnosis=visit.diagnosis,
+            medicines=[i.medicine for i in visit.items],
+            follow_up_date=visit.follow_up_date,
+        )
+        for visit, doctor in rows.all()
+    ]
+
     latest = profile.records[-1]
     return ProfileDetails(
         id=profile.id,
@@ -324,6 +357,39 @@ async def profile_details(
         ],
         doctors=doctors,
         appointments=appointments,
-        prescriptions=[],
+        prescriptions=prescriptions,
         reports=[],
+    )
+
+
+@router.get("/profiles/{profile_id}/prescriptions/{visit_id}.pdf")
+async def patient_prescription_pdf(
+    profile_id: uuid.UUID, visit_id: uuid.UUID, account: CurrentPatient, db: DbSession
+) -> Response:
+    """Download one of your own finished prescriptions."""
+    profile = await _get_profile(db, account, profile_id)
+    if not profile.verified:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Please confirm your date of birth first")
+    visit = await db.scalar(
+        select(Visit).where(
+            Visit.id == visit_id,
+            Visit.patient_id.in_([r.id for r in profile.records]),
+            Visit.status == VisitStatus.COMPLETED,
+        )
+    )
+    if visit is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Prescription not found")
+    patient = next(r for r in profile.records if r.id == visit.patient_id)
+    doctor = await db.get(User, visit.doctor_id)
+    clinic = await db.get(Clinic, visit.clinic_id)
+    pdf = render_prescription_pdf(
+        visit, patient, doctor, clinic, clinic_zone(clinic), age_on(patient.date_of_birth)
+    )
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": content_disposition("attachment", pdf_filename(visit, patient)),
+            "Cache-Control": "private, no-store",
+        },
     )

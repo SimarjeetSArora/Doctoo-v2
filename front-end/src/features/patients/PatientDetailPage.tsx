@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, ArrowLeft, FileText, FlaskConical, Pencil, Phone } from 'lucide-react'
+import { Archive, ArrowLeft, FlaskConical, Pencil, Phone } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog'
 import { PatientAppointments } from '@/features/appointments/PatientAppointments'
 import { useAuth } from '@/features/auth/auth-context'
+import { PatientVisits } from '@/features/consultations/PatientVisits'
 import { api } from '@/lib/api'
 import { errorText } from '@/lib/errors'
 import { ageAndGender, formatDate, initials } from '@/lib/format'
@@ -34,7 +35,6 @@ function Detail({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 const COMING_NEXT = [
-  { icon: FileText, title: 'Prescriptions', text: 'Written here, shared on WhatsApp.' },
   { icon: FlaskConical, title: 'Reports', text: 'Lab reports and scans.' },
 ]
 
@@ -145,6 +145,8 @@ export function PatientDetailPage() {
       </Card>
 
       <PatientAppointments patient={p} />
+
+      <PatientVisits patientId={p.id} />
 
       <div className="grid gap-4 md:grid-cols-2">
         {COMING_NEXT.map(({ icon: Icon, title, text }) => (

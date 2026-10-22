@@ -27,6 +27,7 @@ class WhatsAppTemplate(enum.StrEnum):
     LOGIN_CODE = "login_code"  # Meta "Authentication" template with a copy-code button
     INVITATION = "invitation"  # Meta "Utility" template
     APPOINTMENT_CONFIRMED = "appointment_confirmed"  # Meta "Utility" template
+    PRESCRIPTION = "prescription"  # Meta "Utility" template with a document header
 
 
 # Text as approved by Meta ({{1}}, {{2}}… are filled in order from VARIABLES below).
@@ -41,11 +42,15 @@ TEMPLATE_TEXT: dict[WhatsAppTemplate, str] = {
         "Hi {{1}}, your appointment with {{2}} at {{3}} is confirmed for {{4}}. "
         "Please arrive 10 minutes early."
     ),
+    WhatsAppTemplate.PRESCRIPTION: (
+        "Hi {{1}}, here is your prescription from {{2}} at {{3}}. Get well soon!"
+    ),
 }
 VARIABLES: dict[WhatsAppTemplate, list[str]] = {
     WhatsAppTemplate.LOGIN_CODE: ["code"],
     WhatsAppTemplate.INVITATION: ["inviter", "clinic", "role", "days", "link"],
     WhatsAppTemplate.APPOINTMENT_CONFIRMED: ["patient", "doctor", "clinic", "when"],
+    WhatsAppTemplate.PRESCRIPTION: ["patient", "doctor", "clinic"],
 }
 
 
@@ -54,6 +59,9 @@ class WhatsAppMessage:
     to: str  # E.164, e.g. +919876543210
     template: WhatsAppTemplate
     params: dict[str, str] = field(default_factory=dict)
+    # Optional PDF sent with the message (WhatsApp downloads it from this public link).
+    document_url: str | None = None
+    document_name: str | None = None
 
     def values(self) -> list[str]:
         return [self.params[name] for name in VARIABLES[self.template]]
@@ -63,6 +71,9 @@ class WhatsAppMessage:
         text = TEMPLATE_TEXT[self.template]
         for position, value in enumerate(self.values(), start=1):
             text = text.replace(f"{{{{{position}}}}}", value)
+        if self.document_url:
+            name = self.document_name or "document"
+            text += f"\n\n[PDF attached: {name}] {self.document_url}"
         return text
 
 
@@ -108,6 +119,7 @@ class Msg91WhatsAppSender:
             WhatsAppTemplate.LOGIN_CODE: s.msg91_whatsapp_login_template,
             WhatsAppTemplate.INVITATION: s.msg91_whatsapp_invitation_template,
             WhatsAppTemplate.APPOINTMENT_CONFIRMED: s.msg91_whatsapp_appointment_template,
+            WhatsAppTemplate.PRESCRIPTION: s.msg91_whatsapp_prescription_template,
         }[template]
         if not name:
             raise Msg91WhatsAppError(f"No MSG91 WhatsApp template configured for {template!r}")
@@ -118,6 +130,12 @@ class Msg91WhatsAppSender:
             f"body_{position}": {"type": "text", "value": value}
             for position, value in enumerate(message.values(), start=1)
         }
+        if message.document_url:
+            components["header_1"] = {
+                "type": "document",
+                "value": message.document_url,
+                "filename": message.document_name or "document.pdf",
+            }
         if message.template == WhatsAppTemplate.LOGIN_CODE:
             # Authentication templates carry the code again for the "Copy code" button.
             components["button_1"] = {

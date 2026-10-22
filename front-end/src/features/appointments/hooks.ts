@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 
 import { api } from '@/lib/api'
@@ -36,6 +37,21 @@ export function useChangeStatus() {
       }
       queryClient.invalidateQueries({ queryKey: ['appointments'] })
       queryClient.invalidateQueries({ queryKey: ['slots'] })
+    },
+    onError: (e) => toast.error(errorText(e)),
+  })
+}
+
+/** Starts (or reopens) the consultation for an appointment and goes to it. */
+export function useOpenConsultation() {
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  return useMutation({
+    mutationFn: (appointmentId: string) =>
+      api.post<{ id: string }>(`/appointments/${appointmentId}/consultation`),
+    onSuccess: (visit) => {
+      queryClient.invalidateQueries({ queryKey: ['appointments'] })
+      navigate(`/consultations/${visit.id}`)
     },
     onError: (e) => toast.error(errorText(e)),
   })

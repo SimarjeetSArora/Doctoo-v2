@@ -14,14 +14,13 @@ import { formatTime } from '@/lib/time'
 import type { Appointment, AppointmentStatus } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
-import { useChangeStatus } from './hooks'
+import { useChangeStatus, useOpenConsultation } from './hooks'
 import { StatusBadge } from './StatusBadge'
 
 // The obvious next step for each status, shown as a button.
+// (Starting a consultation opens the consultation screen instead.)
 const NEXT_STEP: Partial<Record<AppointmentStatus, { to: AppointmentStatus; label: string }>> = {
   booked: { to: 'arrived', label: 'Check in' },
-  arrived: { to: 'in_consultation', label: 'Start' },
-  in_consultation: { to: 'completed', label: 'Complete' },
 }
 
 export function AppointmentItem({
@@ -38,6 +37,7 @@ export function AppointmentItem({
   onReschedule: (appointment: Appointment) => void
 }) {
   const changeStatus = useChangeStatus()
+  const openConsultation = useOpenConsultation()
   const next = NEXT_STEP[a.status]
   const canCheckIn = a.status !== 'booked' || isToday
   const done = a.status === 'completed' || a.status === 'cancelled' || a.status === 'no_show'
@@ -80,6 +80,15 @@ export function AppointmentItem({
           {next.label}
         </Button>
       )}
+      {(a.status === 'arrived' || a.status === 'in_consultation') && (
+        <Button
+          size="sm"
+          disabled={openConsultation.isPending}
+          onClick={() => openConsultation.mutate(a.id)}
+        >
+          {a.status === 'arrived' ? 'Start' : 'Open consultation'}
+        </Button>
+      )}
       {!done && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -108,7 +117,9 @@ export function AppointmentItem({
               </>
             )}
             {a.status === 'in_consultation' && (
-              <DropdownMenuItem disabled>Finish the consultation to close it</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => changeStatus.mutate({ id: a.id, status: 'completed' })}>
+                Mark completed without notes
+              </DropdownMenuItem>
             )}
           </DropdownMenuContent>
         </DropdownMenu>

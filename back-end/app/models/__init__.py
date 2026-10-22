@@ -19,6 +19,7 @@ from app.models.clinic import Clinic
 from app.models.patient import Gender, Patient
 from app.models.patient_portal import PatientAccount, PatientSession
 from app.models.user import ClinicMember, Role, Salutation, User
+from app.models.visit import Medicine, PrescriptionItem, Visit, VisitStatus
 
 __all__ = [
     "ACTIVE_STATUSES",
@@ -31,15 +32,19 @@ __all__ = [
     "ClinicMember",
     "Gender",
     "Invitation",
+    "Medicine",
     "OtpChannel",
     "OtpPurpose",
     "PasswordResetToken",
     "Patient",
     "PatientAccount",
     "PatientSession",
+    "PrescriptionItem",
     "Role",
     "Salutation",
     "User",
     "UserSession",
     "VerificationCode",
+    "Visit",
+    "VisitStatus",
 ]

@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173"]
     # Used to build links in emails (password reset, invitations)
     frontend_url: str = "http://localhost:5173"
+    # Public address of this API, for links outside the app (e.g. prescription PDFs on WhatsApp).
+    # In development the frontend proxies /api, so this works locally.
+    public_api_url: str = "http://localhost:5173/api/v1"
+    prescription_link_days: int = 30
 
     # Email delivery: "smtp" sends through the SMTP server below; "console" just prints
     # emails in the backend terminal.
@@ -62,6 +66,7 @@ class Settings(BaseSettings):
     msg91_whatsapp_login_template: str = "doctoo_login_code"
     msg91_whatsapp_invitation_template: str = "doctoo_invitation"
     msg91_whatsapp_appointment_template: str = "doctoo_appointment_confirmed"
+    msg91_whatsapp_prescription_template: str = "doctoo_prescription"
     msg91_whatsapp_language: str = "en"
     msg91_whatsapp_namespace: str = ""  # only if MSG91's sample request includes one
     msg91_whatsapp_url: str = (
