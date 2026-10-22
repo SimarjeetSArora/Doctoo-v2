@@ -2,6 +2,7 @@ import {
   CalendarDays,
   Check,
   ChevronsUpDown,
+  Clock,
   LayoutDashboard,
   LogOut,
   MonitorSmartphone,
@@ -47,9 +48,10 @@ type NavItem = { label: string; to: string; icon: React.ElementType; soon?: bool
 const CLINIC_NAV: NavItem[] = [
   { label: 'Dashboard', to: '/', icon: LayoutDashboard },
   { label: 'Patients', to: '/patients', icon: UsersRound },
-  { label: 'Appointments', to: '/appointments', icon: CalendarDays, soon: true },
+  { label: 'Appointments', to: '/appointments', icon: CalendarDays },
 ]
 const ADMIN_NAV: NavItem[] = [
+  { label: 'Doctor hours', to: '/doctor-hours', icon: Clock },
   { label: 'Team', to: '/team', icon: Users },
   { label: 'Clinic settings', to: '/settings', icon: Settings },
 ]

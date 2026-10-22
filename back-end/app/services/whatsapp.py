@@ -26,6 +26,7 @@ logger = logging.getLogger("doctoo.whatsapp")
 class WhatsAppTemplate(enum.StrEnum):
     LOGIN_CODE = "login_code"  # Meta "Authentication" template with a copy-code button
     INVITATION = "invitation"  # Meta "Utility" template
+    APPOINTMENT_CONFIRMED = "appointment_confirmed"  # Meta "Utility" template
 
 
 # Text as approved by Meta ({{1}}, {{2}}… are filled in order from VARIABLES below).
@@ -36,10 +37,15 @@ TEMPLATE_TEXT: dict[WhatsAppTemplate, str] = {
     WhatsAppTemplate.INVITATION: (
         "{{1}} invited you to join {{2}} on Doctoo as a {{3}}. Accept within {{4}} days: {{5}}"
     ),
+    WhatsAppTemplate.APPOINTMENT_CONFIRMED: (
+        "Hi {{1}}, your appointment with {{2}} at {{3}} is confirmed for {{4}}. "
+        "Please arrive 10 minutes early."
+    ),
 }
 VARIABLES: dict[WhatsAppTemplate, list[str]] = {
     WhatsAppTemplate.LOGIN_CODE: ["code"],
     WhatsAppTemplate.INVITATION: ["inviter", "clinic", "role", "days", "link"],
+    WhatsAppTemplate.APPOINTMENT_CONFIRMED: ["patient", "doctor", "clinic", "when"],
 }
 
 
@@ -97,9 +103,11 @@ class Msg91WhatsAppSender:
         self.transport = transport  # tests pass a fake transport
 
     def template_name(self, template: WhatsAppTemplate) -> str:
+        s = self.settings
         name = {
-            WhatsAppTemplate.LOGIN_CODE: self.settings.msg91_whatsapp_login_template,
-            WhatsAppTemplate.INVITATION: self.settings.msg91_whatsapp_invitation_template,
+            WhatsAppTemplate.LOGIN_CODE: s.msg91_whatsapp_login_template,
+            WhatsAppTemplate.INVITATION: s.msg91_whatsapp_invitation_template,
+            WhatsAppTemplate.APPOINTMENT_CONFIRMED: s.msg91_whatsapp_appointment_template,
         }[template]
         if not name:
             raise Msg91WhatsAppError(f"No MSG91 WhatsApp template configured for {template!r}")

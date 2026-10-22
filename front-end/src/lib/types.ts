@@ -147,6 +147,72 @@ export type ProfileDetails = {
   blood_group: string | null
   clinics: ClinicCard[]
   doctors: DoctorCard[]
+  appointments: AppointmentCard[]
   prescriptions: { id: string }[]
   reports: { id: string }[]
+}
+
+// ---------- Appointments ----------
+
+export type AppointmentStatus =
+  | 'booked'
+  | 'arrived'
+  | 'in_consultation'
+  | 'completed'
+  | 'no_show'
+  | 'cancelled'
+
+export type AppointmentKind = 'scheduled' | 'walk_in'
+
+export const STATUS_LABELS: Record<AppointmentStatus, string> = {
+  booked: 'Booked',
+  arrived: 'Waiting',
+  in_consultation: 'With doctor',
+  completed: 'Completed',
+  no_show: 'No-show',
+  cancelled: 'Cancelled',
+}
+
+export type Appointment = {
+  id: string
+  kind: AppointmentKind
+  status: AppointmentStatus
+  start_at: string
+  end_at: string
+  visit_date: string
+  token_number: number | null
+  reason: string | null
+  notes: string | null
+  patient_id: string
+  patient_name: string
+  patient_phone: string
+  doctor_id: string
+  doctor_name: string
+  arrived_at: string | null
+  started_at: string | null
+  completed_at: string | null
+  cancelled_at: string | null
+  created_at: string
+}
+
+export type DoctorSession = {
+  weekday: number // 0 = Monday
+  start_time: string // "10:00:00"
+  end_time: string
+  slot_minutes: number
+}
+
+export type Doctor = { user_id: string; full_name: string; sessions: DoctorSession[] }
+
+export type Slot = { start_at: string; end_at: string; available: boolean }
+
+export type AppointmentCard = {
+  id: string
+  kind: AppointmentKind
+  status: AppointmentStatus
+  start_at: string
+  token_number: number | null
+  reason: string | null
+  doctor_name: string
+  clinic_name: string
 }

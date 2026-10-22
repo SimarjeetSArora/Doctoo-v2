@@ -1,10 +1,10 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel
 
-from app.models import Gender
+from app.models import AppointmentKind, AppointmentStatus, Gender
 from app.schemas.auth import OtpCode
 from app.schemas.common import Phone
 
@@ -54,6 +54,17 @@ class DoctorCard(BaseModel):
     clinic_name: str
 
 
+class AppointmentCard(BaseModel):
+    id: uuid.UUID
+    kind: AppointmentKind
+    status: AppointmentStatus
+    start_at: datetime
+    token_number: int | None
+    reason: str | None
+    doctor_name: str
+    clinic_name: str
+
+
 class PrescriptionCard(BaseModel):
     """Filled in once doctors can write prescriptions."""
 
@@ -75,5 +86,6 @@ class ProfileDetails(BaseModel):
     blood_group: str | None
     clinics: list[ClinicCard]
     doctors: list[DoctorCard]
+    appointments: list[AppointmentCard]  # newest first
     prescriptions: list[PrescriptionCard]
     reports: list[ReportCard]

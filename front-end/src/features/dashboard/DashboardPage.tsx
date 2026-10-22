@@ -15,7 +15,12 @@ const FEATURES: Feature[] = [
     text: 'Register patients and find them instantly by name or phone.',
     to: '/patients',
   },
-  { icon: CalendarDays, title: 'Appointments', text: 'Day and week calendar for every doctor.' },
+  {
+    icon: CalendarDays,
+    title: 'Appointments',
+    text: 'Book time slots, add walk-ins and run the day’s token queue.',
+    to: '/appointments',
+  },
   {
     icon: FileText,
     title: 'Prescriptions & reports',

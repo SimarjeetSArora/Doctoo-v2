@@ -1,5 +1,7 @@
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router'
 
+import { AppointmentsPage } from '@/features/appointments/AppointmentsPage'
+import { DoctorHoursPage } from '@/features/appointments/DoctorHoursPage'
 import { AuthProvider } from '@/features/auth/AuthProvider'
 import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage'
 import { GuestOnly, RequireAuth } from '@/features/auth/guards'
@@ -48,6 +50,8 @@ const router = createBrowserRouter([
           { path: '/patients/new', element: <NewPatientPage /> },
           { path: '/patients/:patientId', element: <PatientDetailPage /> },
           { path: '/patients/:patientId/edit', element: <EditPatientPage /> },
+          { path: '/appointments', element: <AppointmentsPage /> },
+          { path: '/doctor-hours', element: <DoctorHoursPage /> },
           { path: '/team', element: <TeamPage /> },
           { path: '/settings', element: <ClinicSettingsPage /> },
         ],

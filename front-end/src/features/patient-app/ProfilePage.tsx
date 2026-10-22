@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Building2, FileText, FlaskConical, Mail, MapPin, Phone, Stethoscope } from 'lucide-react'
+import { ArrowLeft, Building2, CalendarDays, FileText, FlaskConical, Mail, MapPin, Phone, Stethoscope } from 'lucide-react'
+import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -9,7 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { patientApi } from '@/lib/api'
 import { ageAndGender, formatDate, initials } from '@/lib/format'
 import { formatPhone } from '@/lib/phone'
-import type { ClinicCard, ProfileDetails } from '@/lib/types'
+import { DEFAULT_ZONE, dateInZone, formatDay, formatTime } from '@/lib/time'
+import { type AppointmentCard, type ClinicCard, type ProfileDetails, STATUS_LABELS } from '@/lib/types'
 
 import { usePatientAuth } from './patient-auth'
 
@@ -59,13 +61,18 @@ export function ProfilePage() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="clinics">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs defaultValue="visits">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="visits">Visits</TabsTrigger>
           <TabsTrigger value="clinics">Clinics</TabsTrigger>
           <TabsTrigger value="doctors">Doctors</TabsTrigger>
           <TabsTrigger value="prescriptions">Rx</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="visits" className="flex flex-col gap-3">
+          <Visits appointments={p.appointments} />
+        </TabsContent>
 
         <TabsContent value="clinics" className="flex flex-col gap-3">
           {p.clinics.map((clinic) => (
@@ -159,6 +166,58 @@ function Empty({ icon: Icon, text }: { icon: React.ElementType; text: string }) 
       <CardContent className="flex flex-col items-center gap-3 py-8 text-center text-sm text-muted-foreground">
         <Icon className="size-8" />
         {text}
+      </CardContent>
+    </Card>
+  )
+}
+
+// Clinics on Doctoo are in India for now; times are shown in clinic time.
+const ZONE = DEFAULT_ZONE
+
+function Visits({ appointments }: { appointments: AppointmentCard[] }) {
+  const [now] = useState(() => Date.now())
+  // Today's visit in progress, or bookings still ahead.
+  const upcoming = appointments
+    .filter(
+      (a) =>
+        a.status === 'arrived' ||
+        a.status === 'in_consultation' ||
+        (a.status === 'booked' && new Date(a.start_at).getTime() >= now - 3600_000),
+    )
+    .reverse()
+  const past = appointments.filter((a) => !upcoming.includes(a))
+  if (appointments.length === 0) {
+    return <Empty icon={CalendarDays} text="No visits yet. Appointments booked at your clinic appear here." />
+  }
+  return (
+    <>
+      {upcoming.length > 0 && <h2 className="text-sm font-medium text-muted-foreground">Today & upcoming</h2>}
+      {upcoming.map((a) => (
+        <VisitItem key={a.id} visit={a} highlight />
+      ))}
+      {past.length > 0 && <h2 className="pt-2 text-sm font-medium text-muted-foreground">Past</h2>}
+      {past.map((a) => (
+        <VisitItem key={a.id} visit={a} />
+      ))}
+    </>
+  )
+}
+
+function VisitItem({ visit: a, highlight }: { visit: AppointmentCard; highlight?: boolean }) {
+  return (
+    <Card className={highlight ? 'border-primary/40' : undefined}>
+      <CardContent className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-0.5">
+          <div className="font-medium">
+            {formatDay(dateInZone(a.start_at, ZONE), { weekday: 'short' })} ·{' '}
+            {a.kind === 'walk_in' ? `Token #${a.token_number}` : formatTime(a.start_at, ZONE)}
+          </div>
+          <div className="text-sm text-muted-foreground">
+            {a.doctor_name} · {a.clinic_name}
+          </div>
+          {a.reason && <div className="text-sm">{a.reason}</div>}
+        </div>
+        <Badge variant="outline">{STATUS_LABELS[a.status]}</Badge>
       </CardContent>
     </Card>
   )

@@ -22,17 +22,16 @@ from app.core.config import get_settings
 from app.core.database import DbSession
 from app.core.security import create_access_token, decode_access_token
 from app.models import (
+    Appointment,
     Clinic,
-    ClinicMember,
     OtpChannel,
     OtpPurpose,
     PatientAccount,
-    Role,
-    Salutation,
     User,
 )
 from app.schemas.auth import OtpResponse, TokenResponse
 from app.schemas.patient_portal import (
+    AppointmentCard,
     ClinicCard,
     DoctorCard,
     PatientLoginRequest,
@@ -56,6 +55,7 @@ from app.services.patient_portal import (
     records_for_phone,
     start_patient_session,
 )
+from app.services.scheduling import clinic_doctors
 from app.services.sms import SmsMessage, SmsSender, SmsTemplate, deliver_sms, get_sms_sender
 from app.services.whatsapp import (
     WhatsAppMessage,
@@ -270,21 +270,34 @@ async def profile_details(
     clinics = {c.id: c for c in await db.scalars(select(Clinic).where(Clinic.id.in_(clinic_ids)))}
 
     # Doctors at the patient's clinics (doctor role, or an owner who is a doctor).
-    rows = await db.execute(
-        select(ClinicMember, User)
-        .join(User, User.id == ClinicMember.user_id)
-        .where(ClinicMember.clinic_id.in_(clinic_ids), ClinicMember.is_active, User.is_active)
-        .order_by(User.first_name)
-    )
     doctors = [
         DoctorCard(
             name=user.full_name,
             clinic_id=member.clinic_id,
             clinic_name=clinics[member.clinic_id].name,
         )
-        for member, user in rows.all()
-        if member.role == Role.DOCTOR
-        or (member.role == Role.OWNER and user.salutation == Salutation.DR)
+        for member, user in await clinic_doctors(db, clinic_ids)
+    ]
+
+    rows = await db.execute(
+        select(Appointment, User)
+        .join(User, User.id == Appointment.doctor_id)
+        .where(Appointment.patient_id.in_([r.id for r in profile.records]))
+        .order_by(Appointment.start_at.desc())
+        .limit(50)
+    )
+    appointments = [
+        AppointmentCard(
+            id=appt.id,
+            kind=appt.kind,
+            status=appt.status,
+            start_at=appt.start_at,
+            token_number=appt.token_number,
+            reason=appt.reason,
+            doctor_name=doctor.full_name,
+            clinic_name=clinics[appt.clinic_id].name,
+        )
+        for appt, doctor in rows.all()
     ]
 
     latest = profile.records[-1]
@@ -310,6 +323,7 @@ async def profile_details(
             for cid in clinic_ids
         ],
         doctors=doctors,
+        appointments=appointments,
         prescriptions=[],
         reports=[],
     )

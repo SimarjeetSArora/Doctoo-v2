@@ -75,6 +75,22 @@ receptionists can register and edit. Record each patient's **WhatsApp/SMS consen
 4. Tabs: **Clinics · Doctors · Prescriptions · Reports** (prescriptions and reports fill in once the
    clinic side can create them).
 
+## Appointments
+
+- **Doctor hours** (`/doctor-hours`): weekly sessions per doctor (several per day, e.g. 10–1 and 5–8) with a
+  slot length. Owners edit anyone's; doctors their own. "Doctors" = members with the Doctor role, plus owners
+  registered with the title Dr.
+- **Appointments** (`/appointments`): day view with today's **token queue**, week view, doctor filter.
+  Book a free slot, or **Add walk-in** (joins today's queue with the next token).
+- Status flow: Booked → *Check in* (gets a token) → *Start* → *Complete*; or No-show / Cancelled.
+  Check-in only on the appointment's day. Rescheduling is for booked appointments.
+- **No double booking**: besides the app's check, a Postgres exclusion constraint (`btree_gist`) rejects
+  overlapping active bookings for a doctor — safe even when two people book the same slot at once.
+- Times are stored in UTC and shown in the clinic's time zone (`clinics.timezone`, default Asia/Kolkata).
+- Patients with WhatsApp consent get a confirmation when booked or moved (template
+  `doctoo_appointment_confirmed`: *"Hi {{1}}, your appointment with {{2}} at {{3}} is confirmed for {{4}}.
+  Please arrive 10 minutes early."*, category Utility). The patient app shows their visits.
+
 ## SMS
 
 | Setting `SMS_BACKEND` | Where texts go |
